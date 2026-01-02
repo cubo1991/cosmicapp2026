@@ -163,11 +163,22 @@ body {
 /*Random Alien Button*/
 .random-alien{
   padding: 10px;
-  background-color: #4CAF50;
+  background-color: #3c68a9;
   color: #ffffff;
-  border: none;
+  border: none; 
   border-radius: 4px;
   cursor: pointer;
+text-align: center;
+}
+.random-alien:hover {
+  background-color: #3c68a9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.random-alien:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 /*Alien Card*/

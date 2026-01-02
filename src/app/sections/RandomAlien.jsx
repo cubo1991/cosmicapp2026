@@ -35,7 +35,7 @@ const RandomAlien = () => {
       setLoading(false);
     }
   };
-  console.log("Aliens asignados desde Zustand:", aliensAsignados);
+
 
   return (
     <div className="random-alien">
@@ -50,9 +50,16 @@ const RandomAlien = () => {
       {error && <div className="error">Error: {error}</div>}
 
       {randomAlien && (
+        console.log("Random Alien:", randomAlien),
         <div className="alien-card">
           <h3>{randomAlien.Nombre}</h3>
-          <p>{randomAlien.description}</p>
+       
+    <p>
+        {randomAlien.Dificultad === "Green" && "Verde"}
+        {randomAlien.Dificultad === "Yellow" && "Amarillo"}
+        {randomAlien.Dificultad === "Red" && "Rojo"}
+    </p>
+       
         </div>
       )}
     </div>
