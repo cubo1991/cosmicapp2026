@@ -14,8 +14,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #c2545483;
+    --foreground: #000000;
   }
 }
 
@@ -23,4 +23,474 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+
+/*Alien List*/
+.alien-list {
+  list-style-type: none;
+  padding: 0;
+}
+.alien-card {
+  border: 1px solid var(--foreground);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 8px 0;
+}
+.alien-card h2 {
+  margin: 0 0 8px 0;
+}
+.alien-card p {
+  margin: 4px 0;
+}
+.alien-card img {
+  max-width: 100%;
+  border-radius: 4px;
+}
+
+
+/*New Match*/
+.new-match-container {
+  padding: 20px;
+  background-color: var(--background);
+  color: var(--foreground);
+  text-align: center;
+}
+.new-match-title {
+  font-size: 2rem;
+  margin-bottom: 20px;
+}
+.new-match-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  max-width: 400px;
+  margin: auto;
+}
+.create-match-button {
+  grid-column: span 2;
+  padding: 10px;
+  background-color: var(--foreground);
+  color: var(--background);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.create-match-button:hover {
+  background-color: gray;
+}
+.player-input{
+  width: 18rem;
+  height: 7rem;
+  
+}
+.new-match-form label {
+  font-weight: bold;
+}
+.new-match-form input,
+.new-match-form select {
+  padding: 8px;
+  border: 1px solid var(--foreground);
+  border-radius: 4px;
+}
+.new-match-form button {
+  padding: 10px;
+  background-color: var(--foreground);
+  color: var(--background);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/*Join Match*/
+.joinmatch{
+  display: flex;
+  flex-direction: column;
+  
+  gap: 20px;
+   
+}
+.joinmatch-item{
+   width: 100%;
+  max-width: 100%;
+  height: fit-content;
+  border: white
+}
+.joinmatch-list{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  max-width: 400px;
+  margin: 0;
+   margin-left: 0; /* pegado a la izquierda */
+  
+}
+.joinmatch-container {
+  padding: 20px;
+  background-color: var(--background);
+  color: var(--foreground);
+  text-align: center;
+}
+.joinmatch-title {
+  font-size: 2rem;        
+  margin-bottom: 20px;
+}
+.joinmatch-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  max-width: 400px;
+  margin: auto;
+}
+.joinmatch-button {
+  grid-column: span 2;
+  padding: 10px;
+  background-color: var(--foreground);
+  color: var(--background);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.joinmatch-button:hover {
+  background-color: gray;
+}
+.joinmatch-player-aliens {
+  width: 18rem;
+  height: 7rem;
+  
+} 
+
+/*Random Alien Button*/
+.random-alien{
+  padding: 10px;
+  background-color: #4CAF50;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/*Alien Card*/
+
+.alien-card__table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.alien-card__row {
+  border-bottom: 1px solid var(--foreground);
+}
+
+.alien-card__cell {
+  padding: 12px;
+   word-break: break-word;
+}
+
+.alien-card__cell--title {
+  font-weight: bold;
+}
+
+.alien-card__difficulty {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: var(--background);
+}
+
+.alien-card__difficulty.easy {
+  background-color: green;
+}
+
+.alien-card__difficulty.medium {
+  background-color: orange;
+}
+
+.alien-card__difficulty.hard {
+  background-color: red;
+}
+
+.alien-card__power {
+  font-size: 1.5rem;
+  margin: 10px 0;
+}
+
+.alien-card__description {
+  transition: max-height 0.3s ease;
+  overflow: hidden;
+}
+
+.alien-card__description.is-expanded {
+  max-height: 1000px; /* Arbitrary large value */
+}
+
+.alien-card__description.is-collapsed {
+  max-height: 0;
+}
+
+.alien-card__toggle {
+  margin-top: 10px;
+  padding: 8px;
+  background-color: var(--foreground);
+  color: var(--background);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.alien-card__toggle:hover {
+  background-color: gray;
+}
+
+/*NavBar*/
+.navBar-navbar {
+  background-color: var(--foreground);
+  padding: 10px 20px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.navBar-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.navBar-logo {
+  color: var(--background);
+  text-decoration: none;
+  font-size: 1.5rem;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.navBar-logoIcon {
+  font-size: 2rem;
+}
+
+.navBar-hamburger {
+  display: none;
+  flex-direction: column;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+}
+
+.navBar-bar {
+  width: 25px;
+  height: 3px;
+  background-color: var(--background);
+  margin: 3px 0;
+  transition: 0.3s;
+}
+
+.navBar-menu {
+  display: flex;
+  list-style: none;
+  gap: 20px;
+  margin: 0;
+  padding: 0;
+}
+
+.navBar-menu li a {
+  color: var(--background);
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+.navBar-menu li a:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+@media (max-width: 768px) {
+  .navBar-hamburger {
+    display: flex;
+  }
+
+  .navBar-menu {
+    position: absolute;
+    top: 60px;
+    right: 0;
+    background-color: var(--foreground);
+    flex-direction: column;
+    width: 100%;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+
+  .navBar-menu.navBar-active {
+    max-height: 300px;
+  }
+
+  .navBar-menu li {
+    text-align: center;
+    padding: 10px 0;
+  }
+
+  .navBar-menu li a {
+    display: block;
+    width: 100%;
+  }
+}
+
+.navBar-slogan {
+  color: var(--background);
+  font-size: 0.9rem;
+  margin-left: 10px;
+  font-style: italic;
+  opacity: 0.8;
+}
+
+
+/*New Match y Join Match Responsivo*/
+
+.newMatchContainer {
+  padding: 20px; 
+  margin: 0 auto;
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+.newMatchTitle {
+  font-size: 2rem;
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.newMatchForm {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.colorGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  padding: 20px;
+}
+
+.colorGrid > * {
+  width: calc(50% - 7.5px);
+}
+
+.colorBox {
+ width: 100%;
+  height: 5rem;
+  aspect-ratio: 2 / 3;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 3px solid transparent;
+}
+
+/* .colorBox:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+} */
+
+.colorBoxSelected {
+  border: 3px solid var(--foreground);
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(25, 173, 20, 0.3);
+}
+
+.createMatchButton {
+  padding: 12px 24px;
+  background-color: var(--foreground);
+  color: var(--background);
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.createMatchButton:hover {
+  background-color: gray;
+}
+
+.matchCreatedMessage {
+  text-align: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+  padding: 15px;
+  background-color: rgba(0, 255, 0, 0.1);
+  border-radius: 8px;
+  border: 2px solid green;
+}
+
+.shareSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  padding: 20px;
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+}
+
+.shareSection p {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin: 0;
+}
+
+.shareWhatsappButton {
+  padding: 12px 24px;
+  background-color: #25D366;
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: bold;
+  transition: background-color 0.3s;
+}
+
+.shareWhatsappButton:hover {
+  background-color: #1ea952;
+}
+
+.goToMatchButton {
+  padding: 12px 24px;
+  background-color: #007bff;
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: bold;
+  transition: background-color 0.3s;
+}
+
+@media (max-width: 480px) {
+  .colorGrid {
+align-items: center;
+justify-content: center;
+  }
+  
+  .newMatchTitle {
+    font-size: 1.5rem;
+  }
+}
+
+
+
+/*Estilos moviles*/
+@media (max-width: 768px) {
+  .new-match-form,
+  .joinmatch-list,
+  .joinmatch-form {
+    grid-template-columns: 1fr;
+  }
+  .create-match-button,
+  .joinmatch-button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
 }
