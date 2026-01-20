@@ -2,6 +2,7 @@
 import { getAlienByName, getMatchById } from "@/firebase/db";
 import { useEffect, useState } from "react";
 import { AlienCard } from "../components/alienCard";
+import AlienCardSimple from "../components/alienCardSimple";
 
 const JoinMatch = ({ matchId }) => {
   const [match, setMatch] = useState(null);
@@ -122,7 +123,8 @@ const JoinMatch = ({ matchId }) => {
           <p>Cargando aliens...</p>
         ) : (
           aliens.map((alien, idx) => (
-            <AlienCard key={alien?.id || idx} alien={alien} />
+            <AlienCardSimple key={alien?.id || idx} alien={alien} />
+           
           ))
         )}
 

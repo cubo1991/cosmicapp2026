@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { getAliens } from "@/firebase/db";
 import { useStore } from "@/store/useStore";
 
-const RandomAlien = () => {
+const   RandomAlien = () => {
   const [randomAlien, setRandomAlien] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
