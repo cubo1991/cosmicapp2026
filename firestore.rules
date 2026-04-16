@@ -1,0 +1,96 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Función auxiliar: verificar si el usuario es admin
+    function isAdmin() {
+      return request.auth.token.admin == true;
+    }
+    
+    // Función auxiliar: verificar si es el dueño del documento
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+    
+    // ============ JUGADORES ============
+    match /players/{userId} {
+      // Leer: todos los usuarios autenticados
+      allow read: if request.auth.uid != null;
+      
+      // Crear: solo si el UID coincide con el del documento
+      allow create: if request.auth.uid == userId &&
+                      request.resource.data.name != null &&
+                      request.resource.data.email != null;
+      
+      // Actualizar: solo el propietario, no puede editar stats directamente
+      allow update: if request.auth.uid == userId &&
+                       (!('stats' in request.resource.data) ||
+                        request.resource.data.stats == resource.data.stats);
+      
+      // Borrar: solo admin
+      allow delete: if isAdmin();
+    }
+    
+    // ============ PARTIDAS ============
+    match /matches/{matchId} {
+      // Leer: todos los usuarios autenticados
+      allow read: if request.auth.uid != null;
+      
+      // Crear: cualquier usuario autenticado
+      allow create: if request.auth.uid != null &&
+                       request.resource.data.nombre != null &&
+                       request.resource.data.jugadores != null;
+      
+      // Actualizar: solo si la partida no está finalizada, o es admin
+      allow update: if request.auth.uid != null &&
+                       (request.resource.data.estado == 'activa' ||
+                        isAdmin());
+      
+      // Borrar: solo admin
+      allow delete: if isAdmin();
+    }
+    
+    // ============ COPAS ============
+    match /copas/{copaId} {
+      // Leer: todos los usuarios autenticados
+      allow read: if request.auth.uid != null;
+      
+      // Crear: cualquier usuario autenticado
+      allow create: if request.auth.uid != null &&
+                       request.resource.data.nombre != null;
+      
+      // Actualizar: cualquier usuario autenticado (rankings se actualizan via Cloud Functions)
+      allow update: if request.auth.uid != null;
+      
+      // Borrar: solo admin o si aún está en planificación
+      allow delete: if isAdmin() ||
+                       (request.auth.uid != null &&
+                        resource.data.estado == 'planificada');
+    }
+    
+    // ============ LIGAS ============
+    match /ligas/{ligaId} {
+      // Leer: todos los usuarios autenticados
+      allow read: if request.auth.uid != null;
+      
+      // Crear: cualquier usuario autenticado
+      allow create: if request.auth.uid != null &&
+                       request.resource.data.nombre != null;
+      
+      // Actualizar: el creador o admin
+      allow update: if request.auth.uid == resource.data.creador ||
+                       isAdmin();
+      
+      // Borrar: solo el creador o admin, si aún está en planificación
+      allow delete: if (request.auth.uid == resource.data.creador || isAdmin()) &&
+                       resource.data.estado == 'planificada';
+    }
+    
+    // ============ DEFAULT ============
+    // Denegar todo lo que no esté explícitamente permitido
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

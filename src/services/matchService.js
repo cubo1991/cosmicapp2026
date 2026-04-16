@@ -1,39 +1,49 @@
 'use client';
 
-import { addMatch as addMatchToDB } from '@/firebase/db';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/firebase/config';
 import { useStore } from '@/store/useStore';
 
 /**
- * Lógica de negocio: Crear una partida
- * - Valida datos (en addMatchToDB)
- * - Guarda en Firebase
- * - Actualiza store global
- *
- * Beneficios:
- * - Separación: Firebase + Lógica de negocio + UI
- * - Testeable: Puedo testear esta función sin componentes
- * - Reutilizable: Otros componentes pueden usarlo
+ * Crear una partida en Firestore
+ * Soporta ambos formatos:
+ * - Nuevo: { jugadores: { playerId: { coloniasInternas, coloniasExternas, ... } } }
+ * - Antiguo: { jugadores: [{ nombre, color, aliens }] }
  */
 export const createMatch = async (matchData) => {
   try {
-    // 1. Firebase (ya hace validación)
-    const codigo = await addMatchToDB(matchData);
+    if (!matchData || !matchData.jugadores) {
+      throw new Error('Datos de partida inválidos');
+    }
 
-    // 2. Actualizar store global
-    useStore.getState().setCodigoPartida(codigo);
+    // Crear datos para Firestore
+    const datosPartida = {
+      nombre: matchData.nombre || 'Partida sin nombre',
+      copId: matchData.copId || null,
+      ligaId: matchData.ligaId || null,
+      estado: 'activa',
+      fechaCreacion: serverTimestamp(),
+      fechaFinalizacion: null,
+      jugadores: matchData.jugadores, // Puede ser array o object
+    };
 
-    // 3. Retornar código
-    return codigo;
+    // Agregar a Firestore
+    const docRef = await addDoc(collection(db, 'matches'), datosPartida);
+
+    // Actualizar store global
+    useStore.getState().setCodigoPartida(docRef.id);
+
+    return docRef.id;
   } catch (error) {
-    console.error("Error creating match:", error);
-    // Re-throw para que el componente lo maneje
+    console.error('Error creando partida:', error);
     throw error;
   }
 };
 
 /**
- * Próximas mejoras:
- * - Si tuvieras auth: export const createMatchAsUser = (userId, matchData)
- * - Si tuvieras analytics: trackMatchCreated(codigo)
- * - Si tuvieras caché: invalidateMatchCache()
+ * Servicio de Matches - Gestión de partidas
  */
+export const matchService = {
+  // Las funcionalidades complejas están en los hooks (useCrearMatch, useMatch)
+  // y en scoringService (para resultados y rankings)
+};

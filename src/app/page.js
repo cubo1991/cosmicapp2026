@@ -85,6 +85,62 @@ export default function Home() {
           />
         </div>
       </section>
+
+      {/* Sistema de Torneos Section */}
+      <section className="bg-gradient-to-r from-blue-600/20 to-indigo-600/20 border-y border-blue-500/30 py-20">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl font-bold text-white text-center mb-12">
+            Sistema de Torneos 🏆
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <TournamentCard
+              href="/players"
+              icon="👥"
+              title="Jugadores"
+              description="Gestiona tus jugadores y sus estadísticas"
+            />
+            <TournamentCard
+              href="/matches"
+              icon="⚔️"
+              title="Partidas"
+              description="Crea y controla tus partidas"
+            />
+            <TournamentCard
+              href="/copas"
+              icon="🏆"
+              title="Copas"
+              description="Organiza torneos y competiciones"
+            />
+            <TournamentCard
+              href="/ligas"
+              icon="⚽"
+              title="Ligas"
+              description="Crea ligas para competencia regular"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Admin Section */}
+      <section className="container mx-auto px-4 py-20">
+        <div className="bg-gradient-to-r from-yellow-600/10 to-orange-600/10 border-2 border-yellow-500/30 rounded-lg p-8 backdrop-blur-sm hover:border-yellow-500/50 transition-all">
+          <div className="flex items-center justify-between flex-wrap gap-6">
+            <div>
+              <h3 className="text-2xl font-bold text-white mb-2">
+                ⚙️ Panel de Administrador
+              </h3>
+              <p className="text-gray-300">
+                Acceso completo para gestionar todos los aspectos del torneo: jugadores, partidas, copas, ligas y estadísticas.
+              </p>
+            </div>
+            <Link href="/admin">
+              <button className="px-8 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold rounded-lg transition-all transform hover:scale-105 whitespace-nowrap">
+                Ir al Admin
+              </button>
+            </Link>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -100,4 +156,20 @@ function FeatureCard({ number, title, description }) {
     </div>
   );
 }
+
+function TournamentCard({ href, icon, title, description }) {
+  return (
+    <Link href={href}>
+      <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-blue-500/30 hover:border-blue-500/80 hover:bg-white/20 transition-all cursor-pointer group">
+        <div className="text-4xl mb-3 group-hover:scale-110 transition-transform">
+          {icon}
+        </div>
+        <h3 className="text-lg font-bold text-white mb-2">{title}</h3>
+        <p className="text-blue-200 text-sm">{description}</p>
+      </div>
+    </Link>
+  );
+}
+  
+
 
