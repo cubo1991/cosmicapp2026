@@ -3,8 +3,6 @@ const { getAliens } = require("@/firebase/db");
 const setAliensPartida = require("@/store/acciones").setAliensPartida;
 
 const asignadorAliens = async (jugadores) => {
-
-
   let aliens = await getAliens()
     .then((aliens) => aliens)
     .catch((error) => {
@@ -12,23 +10,37 @@ const asignadorAliens = async (jugadores) => {
       return [];
     });
 
-
-
+  if (aliens.length === 0) {
+    console.error("No hay aliens disponibles en la base de datos");
+    return false;
+  }
 
   let aliensDisponibles = [...aliens];
+  let aliensAsignados = [];
 
   jugadores.forEach((jugador) => {
-
-
     for (let i = 0; i < 2; i++) {
+      if (aliensDisponibles.length === 0) {
+        console.warn("Se agotaron los aliens disponibles");
+        break;
+      }
+
       const indice = Math.floor(Math.random() * aliensDisponibles.length);
       const alienSeleccionado = aliensDisponibles.splice(indice, 1)[0];
-      jugador.aliens.push(alienSeleccionado?.Nombre);
-      console.log('Alien asignado:', alienSeleccionado?.Nombre);
-      setAliensPartida([alienSeleccionado]);
-    }
 
+      if (alienSeleccionado) {
+        jugador.aliens.push(alienSeleccionado.id);
+        aliensAsignados.push(alienSeleccionado);
+        console.log('Alien asignado:', alienSeleccionado.Nombre);
+      }
+    }
   });
+
+  if (aliensAsignados.length > 0) {
+    setAliensPartida(aliensAsignados);
+  }
+
+  return true;
 };
 
 export default asignadorAliens;

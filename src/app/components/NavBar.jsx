@@ -19,7 +19,6 @@ export default function NavBar() {
                     CosmicApp
                 </Link>
 
-                <a className='navBar-slogan'>Me chupa la pija la UI</a>
 
                 <button className="navBar-hamburger" onClick={toggleMenu}>
                     <span className="navBar-bar"></span>
