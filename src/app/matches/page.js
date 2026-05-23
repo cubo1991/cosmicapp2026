@@ -3,11 +3,10 @@
 import { useState, useEffect } from 'react';
 // import { useAuth } from '@/hooks/useAuth';
 import { useStore } from '@/store/useStore';
-import CrearPartida from '@/components/forms/CrearPartida';
 import BotónEliminar from '@/components/buttons/BotónEliminar';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { collection, query, orderByChild, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 
 export default function MatchesPage() {
@@ -22,13 +21,11 @@ const user = null;
   const [busqueda, setBusqueda] = useState('');
   const router = useRouter();
 
-  // Cargar partidas del usuario en tiempo real
+  // Cargar partidas en tiempo real (ordenadas por fecha descendente)
   useEffect(() => {
-    if (!user) return;
-
     try {
-      const colRef = collection(db, 'partidas');
-      const q = query(colRef);
+      const colRef = collection(db, 'matches');
+      const q = query(colRef, orderBy('fechaCreacion', 'desc'));
       
       const unsubscribe = onSnapshot(q, (snapshot) => {
         const partidasData = snapshot.docs.map(doc => ({
@@ -44,7 +41,7 @@ const user = null;
       setError('Error cargando partidas');
       setLoading(false);
     }
-  }, [user]);
+  }, []);
 
   const partidasFiltradas = partidas.filter(partida => {
     const coincideEstado = !filtroEstado || partida.estado === filtroEstado;
@@ -69,19 +66,12 @@ const user = null;
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800">🎮 Partidas</h1>
-          <button
-            onClick={() => setMostrarFormulario(!mostrarFormulario)}
-            className="bg-orange-600 hover:bg-orange-700 text-white font-medium py-2 px-4 rounded-md transition"
-          >
-            {mostrarFormulario ? '❌ Cancelar' : '➕ Nueva Partida'}
-          </button>
+          <Link href="/nuevaPartida">
+            <button className="bg-orange-600 hover:bg-orange-700 text-white font-medium py-2 px-4 rounded-md transition">
+              ➕ Nueva Partida
+            </button>
+          </Link>
         </div>
-
-        {mostrarFormulario && (
-          <div className="mb-8 bg-white rounded-lg shadow-md p-6">
-            <CrearPartida />
-          </div>
-        )}
 
         {error && (
           <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">

@@ -6,6 +6,7 @@ import { db } from '@/firebase/config';
 import { scoringService } from '@/services/scoringService';
 import { copaService } from '@/services/copaService';
 import { ligaService } from '@/services/ligaService';
+import { rankingService } from '@/services/rankingService';
 
 /**
  * Hook para gestionar una partida específica
@@ -47,12 +48,16 @@ export function useMatch(matchId) {
       setError(null);
       
       // Procesar resultados y calcular puntos
-      const jugadoresConPuntos = scoringService.procesarResultadosPartida(resultados);
+      // Nueva versión retorna { resultados, resumen }
+      const procesado = scoringService.procesarResultadosPartida(resultados);
+      const jugadoresConPuntos = procesado.resultados;
+      const resumen = procesado.resumen;
       
       // Actualizar partida
       const docRef = doc(db, 'matches', matchId);
       await updateDoc(docRef, {
         jugadores: jugadoresConPuntos,
+        resumen: resumen,
         estado: 'finalizada',
         fechaFinalizacion: serverTimestamp()
       });
@@ -66,12 +71,43 @@ export function useMatch(matchId) {
         await scoringService.actualizarRankingLiga(match.ligaId, match, jugadoresConPuntos);
       }
 
-      // Actualizar estadísticas de jugadores
+      // Actualizar estadísticas de jugadores (solo los que participaron)
       for (const [playerId, datos] of Object.entries(jugadoresConPuntos)) {
-        await scoringService.actualizarEstadisticasJugador(playerId, datos.puntos, datos.esGanador);
+        if (datos.participó) {
+          await scoringService.actualizarEstadisticasJugador(
+            playerId, 
+            datos.puntos.total, 
+            datos.esGanador
+          );
+        }
       }
 
-      setMatch(prev => ({ ...prev, estado: 'finalizada', jugadores: jugadoresConPuntos }));
+      // 🆕 Registrar partida para ranking global
+      try {
+        await rankingService.registrarPartidaPorJugador(
+          matchId,
+          jugadoresConPuntos,
+          new Date()
+        );
+        
+        // Actualizar last10Score para cada jugador participante
+        for (const [playerId, datos] of Object.entries(jugadoresConPuntos)) {
+          if (datos.participó) {
+            await rankingService.actualizarLast10Score(playerId);
+          }
+        }
+        console.log('✓ Ranking global actualizado');
+      } catch (rankingError) {
+        console.warn('⚠️ Error actualizando ranking global:', rankingError);
+        // No lanzar error, el ranking es secundario
+      }
+
+      setMatch(prev => ({ 
+        ...prev, 
+        estado: 'finalizada', 
+        jugadores: jugadoresConPuntos,
+        resumen: resumen
+      }));
       
       return { success: true, puntos: jugadoresConPuntos };
     } catch (err) {

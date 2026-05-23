@@ -36,6 +36,9 @@ export default function NavBar() {
                     <li>
                         <Link href="/cargarPartida" onClick={() => setIsOpen(false)}>Cargar Partida</Link>
                     </li>
+                    <li>
+                        <Link href="/admin" onClick={() => setIsOpen(false)}>Admin</Link>
+                    </li>
                 </ul>
             </div>
         </nav>

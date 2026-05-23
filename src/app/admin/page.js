@@ -6,6 +6,9 @@ import AdminJugadores from '@/components/admin/AdminJugadores';
 import AdminPartidas from '@/components/admin/AdminPartidas';
 import AdminCopas from '@/components/admin/AdminCopas';
 import AdminLigas from '@/components/admin/AdminLigas';
+import AdminCargarPartidas from '@/components/admin/AdminCargarPartidas';
+import AdminGenerarPartidas from '@/components/admin/AdminGenerarPartidas';
+import AdminEstadisticasLCE from '@/components/admin/AdminEstadisticasLCE';
 
 export default function AdminPage() {
   const [pestanaActiva, setPestanaActiva] = useState('estadisticas');
@@ -16,6 +19,9 @@ export default function AdminPage() {
     { id: 'partidas', nombre: '🎮 Partidas', icono: '🎮' },
     { id: 'copas', nombre: '🏆 Copas', icono: '🏆' },
     { id: 'ligas', nombre: '⚽ Ligas', icono: '⚽' },
+    { id: 'cargarPartidas', nombre: '📥 Cargar Partidas', icono: '📥' },
+    { id: 'generarPartidas', nombre: '🎲 Generar Prueba', icono: '🎲' },
+    { id: 'estadisticasLCE', nombre: '📋 Liga LCE', icono: '📋' },
   ];
 
   return (
@@ -52,6 +58,9 @@ export default function AdminPage() {
           {pestanaActiva === 'partidas' && <AdminPartidas />}
           {pestanaActiva === 'copas' && <AdminCopas />}
           {pestanaActiva === 'ligas' && <AdminLigas />}
+          {pestanaActiva === 'cargarPartidas' && <AdminCargarPartidas />}
+          {pestanaActiva === 'generarPartidas' && <AdminGenerarPartidas />}
+          {pestanaActiva === 'estadisticasLCE' && <AdminEstadisticasLCE />}
         </div>
       </div>
     </div>

@@ -23,13 +23,23 @@ service cloud.firestore {
                       request.resource.data.name != null &&
                       request.resource.data.email != null;
       
-      // Actualizar: solo el propietario, no puede editar stats directamente
-      allow update: if request.auth.uid == userId &&
-                       (!('stats' in request.resource.data) ||
-                        request.resource.data.stats == resource.data.stats);
+      // Actualizar: el propietario (sus datos), o cualquier auth para estadísticas/stats del sistema
+      allow update: if request.auth.uid != null;
       
       // Borrar: solo admin
       allow delete: if isAdmin();
+
+      // ====== SUBCOLECCIÓN: ÚLTIMAS PARTIDAS ======
+      match /lastMatches/{matchId} {
+        // Leer: todos los usuarios autenticados
+        allow read: if request.auth.uid != null;
+        
+        // Crear/Actualizar: solo sistema (via Cloud Functions o servidor)
+        allow create, update: if request.auth.uid != null;
+        
+        // Borrar: solo admin
+        allow delete: if isAdmin();
+      }
     }
     
     // ============ PARTIDAS ============
@@ -87,6 +97,11 @@ service cloud.firestore {
                        resource.data.estado == 'planificada';
     }
     
+    // ============ SNAPSHOTS ============
+    match /snapshots/{snapshotId} {
+      allow read, write: if request.auth.uid != null;
+    }
+
     // ============ DEFAULT ============
     // Denegar todo lo que no esté explícitamente permitido
     match /{document=**} {

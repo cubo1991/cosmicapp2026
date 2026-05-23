@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { CTAButton } from './components/CTAButton';
 import RandomAlien from './sections/RandomAlien';
+import GlobalRanking from '@/components/GlobalRanking';
 
 export default function Home() {
   return (
@@ -13,10 +14,10 @@ export default function Home() {
             🌌 CosmicAPP
           </h1>
           <p className="text-xl text-purple-200 mb-2">
-            Elige aliens poderosos y compite contra tus amigos
+            Aplicación para el Rey de Reyes
           </p>
           <p className="text-sm text-purple-300">
-            Un juego de estrategia cósmico en tiempo real
+            Crea partidas, organiza torneos y compite con tus amigos en el universo de Cosmic Encounter
           </p>
         </div>
 
@@ -117,6 +118,21 @@ export default function Home() {
               title="Ligas"
               description="Crea ligas para competencia regular"
             />
+          </div>
+        </div>
+      </section>
+
+      {/* Ranking Global Section */}
+      <section className="bg-gradient-to-r from-purple-600/20 to-pink-600/20 border-y border-purple-500/30 py-20">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl font-bold text-white text-center mb-12">
+            🌟 Ranking Global
+          </h2>
+          <p className="text-center text-purple-300 mb-8">
+            Los mejores jugadores basado en la suma de sus últimas 10 partidas
+          </p>
+          <div className="max-w-4xl mx-auto">
+            <GlobalRanking />
           </div>
         </div>
       </section>

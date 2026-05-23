@@ -95,16 +95,57 @@ export const copaService = {
   },
 
   /**
-   * Agregar una partida a la copa
+   * Agregar una partida a la copa CON VALIDACIONES
+   * - Valida que no supere 10 partidas
+   * - Asigna automáticamente la posición
+   * - Requiere fecha de juego
    */
-  async agregarPartida(copaId, matchId) {
+  async agregarPartida(copaId, matchId, fechaJuego) {
     try {
-      const docRef = doc(db, 'copas', copaId);
-      await updateDoc(docRef, {
-        partidas: arrayUnion(matchId),
+      const copaRef = doc(db, 'copas', copaId);
+      const copaSnap = await getDoc(copaRef);
+      
+      if (!copaSnap.exists()) {
+        throw new Error('Copa no encontrada');
+      }
+      
+      const copa = copaSnap.data();
+      const partidasActuales = copa.partidas || [];
+      
+      // Validar límite de 10 partidas
+      if (partidasActuales.length >= 10) {
+        throw new Error(`Esta copa ya tiene el máximo de 10 partidas`);
+      }
+      
+      // Calcular posición automáticamente
+      const nuevaPosicion = partidasActuales.length + 1;
+      
+      // Crear entrada de partida con posición
+      const nuevaPartida = {
+        posicion: nuevaPosicion,
+        matchId: matchId,
+        fechaJuego: fechaJuego ? new Date(fechaJuego) : serverTimestamp(),
+        estado: 'pendiente' // pendiente | cargada | editada
+      };
+      
+      // Actualizar copa
+      await updateDoc(copaRef, {
+        partidas: arrayUnion(nuevaPartida),
         updatedAt: serverTimestamp()
       });
-      return true;
+      
+      // También actualizar el match con la posición y copId si no lo tiene
+      const matchRef = doc(db, 'matches', matchId);
+      await updateDoc(matchRef, {
+        posicion: nuevaPosicion,
+        copId: copaId,
+        fechaJuego: fechaJuego ? new Date(fechaJuego) : serverTimestamp()
+      });
+      
+      return {
+        posicion: nuevaPosicion,
+        matchId: matchId
+      };
     } catch (error) {
       console.error('Error agregando partida a copa:', error);
       throw error;

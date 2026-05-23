@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import EditarPartida from '@/components/forms/EditarPartida';
 import BotónEliminar from '@/components/buttons/BotónEliminar';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
+ 
 
-export default function EditarPartidaPage({ params }) {
-  const { id } = params;
+export default function EditarPartidaPage() {
+  const { id } = useParams();
   const router = useRouter();
 
   const handleSuccessEditar = () => {
