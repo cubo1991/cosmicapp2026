@@ -2,40 +2,18 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { rankingService } from "@/services/rankingService";
 
-/**
- * 🏆 Componente Global Ranking
- * Muestra el top 10 de jugadores basado en últimas 10 partidas
- */
 export default function GlobalRanking() {
   const [ranking, setRanking] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const cargarRanking = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const response = await fetch("/api/ranking");
-        const data = await response.json();
-
-        if (data.success) {
-          // Top 10
-          setRanking(data.ranking.slice(0, 10));
-        } else {
-          setError("No se pudo cargar el ranking");
-        }
-      } catch (err) {
-        console.error("Error cargando ranking:", err);
-        setError("Error al cargar el ranking");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    cargarRanking();
+    rankingService.obtenerRankingGlobal()
+      .then(data => setRanking(data.slice(0, 10)))
+      .catch(() => setError("Error al cargar el ranking"))
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) {
@@ -129,8 +107,8 @@ function RankingCardTop3({ jugador, posicion }) {
         </p>
 
         <div className="text-xs text-purple-300 mt-2 space-y-1">
-          <p>Partidas: {jugador.partidas}</p>
-          <p>Victorias: {jugador.victorias}</p>
+          <p>Partidas en copa: {jugador.partidas}</p>
+          <p>Copas ganadas: {jugador.victorias}</p>
         </div>
       </div>
     </Link>
@@ -178,7 +156,7 @@ function RankingRowCompact({ jugador }) {
           <p className="text-xl font-bold text-yellow-300">
             {jugador.puntos.toFixed(1)}
           </p>
-          <p className="text-xs text-gray-400">suma últimas 10</p>
+          <p className="text-xs text-gray-400">pts acumulados en copas</p>
         </div>
       </div>
     </Link>

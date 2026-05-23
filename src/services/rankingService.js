@@ -95,35 +95,54 @@ export const rankingService = {
   },
 
   /**
-   * Obtener ranking global de todos los jugadores
-   * Retorna jugadores ordenados por last10Score (incluso con 1 sola partida)
+   * Obtener ranking global de todos los jugadores.
+   * Agrega puntosTotales de cada jugador en TODAS las copas (activas y finalizadas).
    */
   async obtenerRankingGlobal() {
     try {
-      const playersCollection = collection(db, 'players');
-      const querySnapshot = await getDocs(playersCollection);
-      
-      // Filtrar solo jugadores que tienen al menos 1 partida registrada
-      const jugadores = querySnapshot.docs
-        .map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          last10Score: doc.data().last10Score || 0
-        }))
-        .filter(j => j.last10Score > 0 || (j.stats?.partidas || 0) > 0) // Al menos 1 partida
-        .sort((a, b) => (b.last10Score || 0) - (a.last10Score || 0))
-        .slice(0, 100); // Top 100
-      
-      return jugadores.map((jugador, index) => ({
-        posicion: index + 1,
-        id: jugador.id,
-        nombre: jugador.name || 'Sin nombre',
-        avatar: jugador.avatar || null,
-        puntos: jugador.last10Score || 0,
-        partidas: jugador.stats?.partidas || 0,
-        victorias: jugador.stats?.victorias || 0,
-        puntosPromedio: jugador.stats?.puntosPromedio || 0
-      }));
+      const [copasSnap, playersSnap] = await Promise.all([
+        getDocs(collection(db, 'copas')),
+        getDocs(collection(db, 'players'))
+      ]);
+
+      // Índice de jugadores para enriquecer con nombre, avatar y estadisticas
+      const playersById = {};
+      playersSnap.docs.forEach(d => { playersById[d.id] = d.data(); });
+
+      // Acumular puntos de copa por jugador
+      const acumulado = {};
+      copasSnap.docs.forEach(copaDoc => {
+        const ranking = copaDoc.data().ranking || {};
+        Object.entries(ranking).forEach(([playerId, datos]) => {
+          if (!acumulado[playerId]) {
+            acumulado[playerId] = { puntos: 0, partidas: 0 };
+          }
+          acumulado[playerId].puntos += datos.puntosTotales || 0;
+          acumulado[playerId].partidas += datos.participaciones || 0;
+        });
+      });
+
+      return Object.entries(acumulado)
+        .filter(([_, d]) => d.puntos > 0)
+        .sort((a, b) => b[1].puntos - a[1].puntos)
+        .slice(0, 100)
+        .map(([id, datos], i) => {
+          const player = playersById[id] || {};
+          const pts = parseFloat(datos.puntos.toFixed(1));
+          return {
+            posicion: i + 1,
+            id,
+            nombre: player.name || 'Sin nombre',
+            avatar: player.photoURL || null,
+            puntos: pts,
+            partidas: datos.partidas,
+            victorias: player.estadisticas?.copas || 0,
+            podioCopas: player.estadisticas?.podioCopas || 0,
+            puntosPromedio: datos.partidas > 0
+              ? parseFloat((datos.puntos / datos.partidas).toFixed(1))
+              : 0
+          };
+        });
     } catch (error) {
       console.error('Error obteniendo ranking global:', error);
       throw error;

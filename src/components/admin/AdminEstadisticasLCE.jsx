@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, serverTimestamp, increment } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import {
   estadisticasService,
@@ -87,6 +87,8 @@ export default function AdminEstadisticasLCE() {
   const [accion, setAccion] = useState(null); // 'sembrando' | 'guardando' | 'restaurando'
   const [mensaje, setMensaje] = useState(null);
   const [confirmando, setConfirmando] = useState(false);
+  const [ligaGanadorId, setLigaGanadorId] = useState('');
+  const [asignandoLiga, setAsignandoLiga] = useState(false);
 
   const cargarJugadores = useCallback(async () => {
     setLoading(true);
@@ -150,6 +152,29 @@ export default function AdminEstadisticasLCE() {
     }
   }
 
+  async function handleAsignarLiga() {
+    if (!ligaGanadorId) return;
+    setAsignandoLiga(true);
+    try {
+      await updateDoc(doc(db, 'players', ligaGanadorId), {
+        'estadisticas.campanas': increment(1),
+        updatedAt: serverTimestamp()
+      });
+      setJugadores(prev =>
+        prev.map(j => j.id === ligaGanadorId
+          ? { ...j, estadisticas: { ...j.estadisticas, campanas: (j.estadisticas.campanas || 0) + 1 } }
+          : j
+        )
+      );
+      setMensaje({ tipo: 'ok', texto: `Victoria de Liga registrada para ${jugadores.find(j => j.id === ligaGanadorId)?.nombre}.` });
+      setLigaGanadorId('');
+    } catch (err) {
+      setMensaje({ tipo: 'error', texto: err.message });
+    } finally {
+      setAsignandoLiga(false);
+    }
+  }
+
   async function handleRestaurar() {
     setConfirmando(false);
     setAccion('restaurando');
@@ -188,17 +213,18 @@ export default function AdminEstadisticasLCE() {
   }
 
   const columnas = [
-    { key: 'jugadas', label: 'Jugadas', resumen: 'suma' },
-    { key: 'victorias', label: 'Victorias', resumen: 'suma' },
-    { key: '_promV', label: 'Prom. V', resumen: 'prom', derived: true },
-    { key: 'colonias', label: 'Colonias', resumen: 'suma' },
-    { key: '_promC', label: 'Prom. C', resumen: 'prom', derived: true },
-    { key: 'victoriasEspeciales', label: 'V. Esp.', resumen: 'suma' },
-    { key: 'campanas', label: 'Campañas', resumen: 'suma' },
-    { key: 'copas', label: 'Copas', resumen: 'suma' },
-    { key: 'ataqueSolitario', label: 'At. Sol.', resumen: 'suma' },
-    { key: 'defensaSolitaria', label: 'Def. Sol.', resumen: 'suma' },
-    { key: 'pijon', label: 'Pijón', resumen: 'suma' },
+    { key: 'jugadas',             label: 'Jugadas',   resumen: 'suma' },
+    { key: 'victorias',           label: 'Victorias', resumen: 'suma' },
+    { key: '_promV',              label: 'Prom. V',   resumen: 'prom', derived: true },
+    { key: 'colonias',            label: 'Colonias',  resumen: 'suma' },
+    { key: '_promC',              label: 'Prom. C',   resumen: 'prom', derived: true },
+    { key: 'victoriasEspeciales', label: 'V. Esp.',   resumen: 'suma' },
+    { key: 'campanas',            label: 'Campañas',  resumen: 'suma' },
+    { key: 'copas',               label: 'Copas',     resumen: 'suma' },
+    { key: 'podioCopas',          label: 'Podio pts', resumen: 'suma' },
+    { key: 'ataqueSolitario',     label: 'At. Sol.',  resumen: 'suma' },
+    { key: 'defensaSolitaria',    label: 'Def. Sol.', resumen: 'suma' },
+    { key: 'pijon',               label: 'Pijón',     resumen: 'suma' },
   ];
 
   function getCellValue(j, col) {
@@ -269,6 +295,30 @@ export default function AdminEstadisticasLCE() {
           {mensaje.texto}
         </div>
       )}
+
+      {/* Asignar Victoria de Liga */}
+      <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4 flex flex-wrap items-end gap-3">
+        <div>
+          <label className="block text-sm font-semibold text-indigo-800 mb-1">Asignar Victoria de Liga (Campañas +1)</label>
+          <select
+            value={ligaGanadorId}
+            onChange={e => setLigaGanadorId(e.target.value)}
+            className="border border-indigo-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+          >
+            <option value="">— Seleccionar jugador —</option>
+            {jugadores.map(j => (
+              <option key={j.id} value={j.id}>{j.nombre} (actual: {j.estadisticas.campanas || 0})</option>
+            ))}
+          </select>
+        </div>
+        <button
+          onClick={handleAsignarLiga}
+          disabled={!ligaGanadorId || asignandoLiga}
+          className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm font-semibold px-4 py-2 rounded transition"
+        >
+          {asignandoLiga ? 'Registrando...' : '🏅 Registrar victoria'}
+        </button>
+      </div>
 
       <div className="overflow-x-auto border border-gray-200 rounded-lg">
         <table className="w-full text-sm">

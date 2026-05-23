@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import NavBar from '@/components/NavBar';
+import { rankingService } from '@/services/rankingService';
 
 /**
  * Página de Ranking Global Completo
@@ -13,25 +14,10 @@ export default function RankingPage() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const cargarRanking = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/ranking');
-        const data = await response.json();
-        
-        if (data.success) {
-          setRanking(data.ranking);
-        } else {
-          setError('No se pudo cargar el ranking');
-        }
-      } catch (err) {
-        setError('Error cargando el ranking');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    cargarRanking();
+    rankingService.obtenerRankingGlobal()
+      .then(data => setRanking(data))
+      .catch(() => setError('Error cargando el ranking'))
+      .finally(() => setLoading(false));
   }, []);
 
   return (
@@ -42,7 +28,7 @@ export default function RankingPage() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold text-white mb-4">🏆 Ranking Global</h1>
-          <p className="text-purple-300">Top jugadores basado en suma de últimas 10 partidas</p>
+          <p className="text-purple-300">Puntos acumulados en todas las copas</p>
         </div>
 
         {/* Contenido */}
@@ -91,7 +77,7 @@ function RankingTable({ ranking }) {
 
       {/* Nota al pie */}
       <div className="text-center text-sm text-purple-400 mt-8 px-4 py-4 bg-white/5 rounded-lg border border-purple-500/30">
-        <p>* Puntos = Suma de últimas 10 partidas completadas</p>
+        <p>* Puntos = Suma acumulada de puntos en todas las copas jugadas</p>
       </div>
     </div>
   );

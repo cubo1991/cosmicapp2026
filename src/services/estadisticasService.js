@@ -15,15 +15,15 @@ import { db } from '@/firebase/config';
 // Datos históricos del Excel LCE — snapshot inicial
 // Clave = nombre exacto del jugador en Firebase (campo 'name')
 const DATOS_EXCEL = {
-  'David Lopez': { jugadas: 365, victorias: 112, colonias: 1384, victoriasEspeciales: 7,  campanas: 0, copas: 9,  ataqueSolitario: 194, defensaSolitaria: 115, pijon: 2 },
-  'JM':          { jugadas: 221, victorias: 58,  colonias: 680,  victoriasEspeciales: 4,  campanas: 1, copas: 2,  ataqueSolitario: 124, defensaSolitaria: 158, pijon: 0 },
-  'Arrigo':      { jugadas: 239, victorias: 102, colonias: 932,  victoriasEspeciales: 2,  campanas: 3, copas: 7,  ataqueSolitario: 124, defensaSolitaria: 165, pijon: 3 },
-  'Goyo':        { jugadas: 244, victorias: 71,  colonias: 945,  victoriasEspeciales: 3,  campanas: 1, copas: 3,  ataqueSolitario: 97,  defensaSolitaria: 0,   pijon: 0 },
-  'Pedro':       { jugadas: 364, victorias: 122, colonias: 1412, victoriasEspeciales: 5,  campanas: 4, copas: 11, ataqueSolitario: 493, defensaSolitaria: 0,   pijon: 5 },
-  'Ale Baca':    { jugadas: 101, victorias: 41,  colonias: 387,  victoriasEspeciales: 0,  campanas: 0, copas: 1,  ataqueSolitario: 0,   defensaSolitaria: 0,   pijon: 0 },
-  'Juanpi':      { jugadas: 116, victorias: 33,  colonias: 324,  victoriasEspeciales: 2,  campanas: 0, copas: 0,  ataqueSolitario: 0,   defensaSolitaria: 0,   pijon: 0 },
-  'Lazaro':      { jugadas: 50,  victorias: 9,   colonias: 185,  victoriasEspeciales: 1,  campanas: 0, copas: 0,  ataqueSolitario: 0,   defensaSolitaria: 0,   pijon: 0 },
-  'Diego':       { jugadas: 26,  victorias: 7,   colonias: 84,   victoriasEspeciales: 1,  campanas: 0, copas: 0,  ataqueSolitario: 0,   defensaSolitaria: 0,   pijon: 0 },
+  'David Lopez': { jugadas: 365, victorias: 112, colonias: 1384, victoriasEspeciales: 7,  campanas: 0, copas: 9,  ataqueSolitario: 194, defensaSolitaria: 115, pijon: 2, podioCopas: 0  },
+  'JM':          { jugadas: 221, victorias: 58,  colonias: 680,  victoriasEspeciales: 4,  campanas: 1, copas: 2,  ataqueSolitario: 124, defensaSolitaria: 158, pijon: 0, podioCopas: 0  },
+  'Arrigo':      { jugadas: 239, victorias: 102, colonias: 932,  victoriasEspeciales: 2,  campanas: 3, copas: 7,  ataqueSolitario: 124, defensaSolitaria: 165, pijon: 3, podioCopas: 0  },
+  'Goyo':        { jugadas: 244, victorias: 71,  colonias: 945,  victoriasEspeciales: 3,  campanas: 1, copas: 3,  ataqueSolitario: 97,  defensaSolitaria: 0,   pijon: 0, podioCopas: 10 },
+  'Pedro':       { jugadas: 364, victorias: 122, colonias: 1412, victoriasEspeciales: 5,  campanas: 4, copas: 11, ataqueSolitario: 493, defensaSolitaria: 0,   pijon: 5, podioCopas: 0  },
+  'Ale Baca':    { jugadas: 101, victorias: 41,  colonias: 387,  victoriasEspeciales: 0,  campanas: 0, copas: 1,  ataqueSolitario: 0,   defensaSolitaria: 0,   pijon: 0, podioCopas: 0  },
+  'Juanpi':      { jugadas: 116, victorias: 33,  colonias: 324,  victoriasEspeciales: 2,  campanas: 0, copas: 0,  ataqueSolitario: 0,   defensaSolitaria: 0,   pijon: 0, podioCopas: 5  },
+  'Lazaro':      { jugadas: 50,  victorias: 9,   colonias: 185,  victoriasEspeciales: 1,  campanas: 0, copas: 0,  ataqueSolitario: 0,   defensaSolitaria: 0,   pijon: 0, podioCopas: 0  },
+  'Diego':       { jugadas: 26,  victorias: 7,   colonias: 84,   victoriasEspeciales: 1,  campanas: 0, copas: 0,  ataqueSolitario: 0,   defensaSolitaria: 0,   pijon: 0, podioCopas: 0  },
 };
 
 export const CAMPOS_EDITABLES = [
@@ -32,7 +32,8 @@ export const CAMPOS_EDITABLES = [
   { key: 'colonias',            label: 'Colonias' },
   { key: 'victoriasEspeciales', label: 'Victorias especiales' },
   { key: 'campanas',            label: 'Campañas' },
-  { key: 'copas',               label: 'Copas' },
+  { key: 'copas',               label: 'Copas ganadas' },
+  { key: 'podioCopas',          label: 'Podio copas (pts)' },
   { key: 'ataqueSolitario',     label: 'Ataque solitario' },
   { key: 'defensaSolitaria',    label: 'Defensa solitaria' },
   { key: 'pijon',               label: 'Pijón' },
@@ -40,7 +41,7 @@ export const CAMPOS_EDITABLES = [
 
 export const estadisticasVacias = () => ({
   jugadas: 0, victorias: 0, colonias: 0,
-  victoriasEspeciales: 0, campanas: 0, copas: 0,
+  victoriasEspeciales: 0, campanas: 0, copas: 0, podioCopas: 0,
   ataqueSolitario: 0, defensaSolitaria: 0, pijon: 0
 });
 

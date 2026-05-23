@@ -76,17 +76,20 @@ export const activeCopaService = {
         updatedAt: serverTimestamp()
       });
 
-      // Incrementar copas ganadas en estadisticas del ganador
-      if (ganador?.playerId) {
-        try {
-          await updateDoc(doc(db, 'players', ganador.playerId), {
-            'estadisticas.copas': increment(1),
-            updatedAt: serverTimestamp()
-          });
-        } catch (e) {
-          console.warn('No se pudo incrementar copas del ganador:', e.message);
-        }
-      }
+      // Actualizar estadisticas: ganador de copa (+1 copa) y podio (10/7/5 pts)
+      const PODIO_PTS = [10, 7, 5];
+      const top3 = entries
+        .sort((a, b) => (b[1].puntosTotales || 0) - (a[1].puntosTotales || 0))
+        .slice(0, 3);
+
+      await Promise.all(
+        top3.map(([playerId], idx) => {
+          const updates = { 'estadisticas.podioCopas': increment(PODIO_PTS[idx]), updatedAt: serverTimestamp() };
+          if (idx === 0) updates['estadisticas.copas'] = increment(1);
+          return updateDoc(doc(db, 'players', playerId), updates)
+            .catch(e => console.warn(`No se pudo actualizar podio para ${playerId}:`, e.message));
+        })
+      );
 
       return ganador;
     } catch (error) {
