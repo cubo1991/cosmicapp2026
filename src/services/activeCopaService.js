@@ -76,15 +76,17 @@ export const activeCopaService = {
         updatedAt: serverTimestamp()
       });
 
-      // Actualizar estadisticas: ganador de copa (+1 copa) y podio (10/7/5 pts)
+      // Reasignar podioCopas: solo refleja la ÚLTIMA copa (no acumula).
+      // Top 3 recibe 10/7/5. El resto queda en 0.
       const PODIO_PTS = [10, 7, 5];
-      const top3 = entries
-        .sort((a, b) => (b[1].puntosTotales || 0) - (a[1].puntosTotales || 0))
-        .slice(0, 3);
+      const sorted = entries.sort((a, b) => (b[1].puntosTotales || 0) - (a[1].puntosTotales || 0));
 
       await Promise.all(
-        top3.map(([playerId], idx) => {
-          const updates = { 'estadisticas.podioCopas': increment(PODIO_PTS[idx]), updatedAt: serverTimestamp() };
+        sorted.map(([playerId], idx) => {
+          const updates = {
+            'estadisticas.podioCopas': PODIO_PTS[idx] ?? 0,
+            updatedAt: serverTimestamp()
+          };
           if (idx === 0) updates['estadisticas.copas'] = increment(1);
           return updateDoc(doc(db, 'players', playerId), updates)
             .catch(e => console.warn(`No se pudo actualizar podio para ${playerId}:`, e.message));
