@@ -5,15 +5,15 @@ import {
   doc,
   getDocs,
   serverTimestamp,
-  writeBatch
+  writeBatch,
+  updateDoc
 } from 'firebase/firestore';
 import { db } from '@/firebase/config';
-import { rankingService } from '@/services/rankingService';
 
 /**
- * Datos de la copa histórica LCE leídos del Excel.
+ * Datos de la copa histórica LCE leídos del Excel (columna Total).
  * patron: array de 10 posiciones (1 = jugó, 0 = no estuvo)
- * puntosTotales: suma de la columna "Total" del Excel
+ * puntosTotales: valor EXACTO de la columna "Total" del Excel para las 10 partidas de la copa
  *
  * Mapeo nombre Excel → Firebase (campo `name` del jugador):
  *   A. Baca        → Ale Baca
@@ -21,7 +21,7 @@ import { rankingService } from '@/services/rankingService';
  *   Arrigo Zanab.  → Arrigo
  *   David L. Math. → David Lopez
  *   Gregorio Laz.  → Goyo
- *   A. Martínez    → A. Martinez  (puede no estar en Firebase)
+ *   A. Martínez    → A. Martinez
  *   Juan M. Gómez  → JM
  *   Pedro Bernabeu → Pedro
  *   Diego Forni    → Diego
@@ -31,61 +31,51 @@ const COPA_HISTORICA = [
   {
     nombre: 'Ale Baca',
     puntosTotales: 141.0,
-    // jugó todas las primeras 10 partidas
     patron: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
   },
   {
     nombre: 'Juanpi',
-    puntosTotales: 118.5, // total sin la partida 1 que no jugó (125.5 - 7.0 de la P11)
-    // no estuvo en partida 1; jugó P2-P10
+    puntosTotales: 125.5,
     patron: [0, 1, 1, 1, 1, 1, 1, 1, 1, 1]
   },
   {
     nombre: 'Arrigo',
-    puntosTotales: 116.8, // sin P11 (125.8 - 9.0)
-    // no estuvo en P5; jugó el resto de P1-P10
+    puntosTotales: 125.8,
     patron: [1, 1, 1, 1, 0, 1, 1, 1, 1, 1]
   },
   {
     nombre: 'David Lopez',
-    puntosTotales: 110.0, // aprox sin P4 y sin P11
-    // no estuvo en P4; jugó el resto de P1-P10
+    puntosTotales: 134.7,
     patron: [1, 1, 1, 0, 1, 1, 1, 1, 1, 1]
   },
   {
     nombre: 'Goyo',
-    puntosTotales: 157.7, // sin P4 y sin P11 (168.7 - 11.0)
-    // no estuvo en P4; jugó el resto de P1-P10
+    puntosTotales: 168.7,
     patron: [1, 1, 1, 0, 1, 1, 1, 1, 1, 1]
   },
   {
     nombre: 'JM',
-    puntosTotales: 122.5, // sin P11 (139.5 - 17.0)
-    // no estuvo en P8; jugó el resto de P1-P10
+    puntosTotales: 139.5,
     patron: [1, 1, 1, 1, 1, 1, 1, 0, 1, 1]
   },
   {
     nombre: 'Pedro',
-    puntosTotales: 91.4, // P1+P2+P3+P6+P7+P8 aprox
-    // solo jugó P1, P2, P3, P6, P7, P8
+    puntosTotales: 127.0,
     patron: [1, 1, 1, 0, 0, 1, 1, 1, 0, 0]
   },
   {
     nombre: 'Diego',
-    puntosTotales: 105.7, // sin P2, P6, P11
-    // jugó P1, P3-P5, P7-P10
+    puntosTotales: 117.7,
     patron: [1, 0, 1, 1, 1, 0, 1, 1, 1, 1]
   },
   {
     nombre: 'Lazaro',
-    puntosTotales: 116.0, // sin P9
-    // jugó P1-P8, P10
+    puntosTotales: 129.0,
     patron: [1, 1, 1, 1, 1, 1, 1, 1, 0, 1]
   },
   {
     nombre: 'A. Martinez',
     puntosTotales: 35.0,
-    // solo jugó P2-P5
     patron: [0, 1, 1, 1, 1, 0, 0, 0, 0, 0]
   },
 ];
@@ -117,9 +107,23 @@ export const copaSeederService = {
       throw new Error('Ningún jugador del Excel fue encontrado en Firebase. Verificá los nombres.');
     }
 
-    onProgress(`${validos.length} jugadores encontrados. Calculando puntajes...`);
+    // ── Limpiar lastMatches existentes para evitar contaminación ─────────
+    onProgress('Limpiando partidas anteriores de los jugadores...');
+    for (const j of validos) {
+      const lastMatchesSnap = await getDocs(
+        collection(db, 'players', j.playerId, 'lastMatches')
+      );
+      if (lastMatchesSnap.docs.length > 0) {
+        const deleteBatch = writeBatch(db);
+        lastMatchesSnap.docs.forEach(d => deleteBatch.delete(d.ref));
+        await deleteBatch.commit();
+        onProgress(`🗑️ ${j.nombre}: ${lastMatchesSnap.docs.length} entradas previas eliminadas`);
+      }
+    }
 
-    // Distribuir puntos por partida (proporcional, basado en promedio por partida jugada)
+    onProgress(`${validos.length} jugadores validados. Preparando datos...`);
+
+    // Distribuir puntos por partida (promedio = puntosTotales / partidas jugadas)
     const puntosParaMatches = Array.from({ length: 10 }, () => ({}));
 
     validos.forEach(j => {
@@ -145,7 +149,7 @@ export const copaSeederService = {
       });
     });
 
-    // Construir ranking final
+    // Construir ranking de la copa
     const ranking = {};
     validos.forEach(j => {
       const participaciones = j.patron.filter(Boolean).length;
@@ -184,15 +188,12 @@ export const copaSeederService = {
       puntosTotales: ganadorData.puntosTotales
     };
 
-    onProgress(`Ganador determinado: ${ganador.nombre} con ${ganador.puntosTotales} pts`);
+    onProgress(`Ganador: ${ganador.nombre} con ${ganador.puntosTotales} pts`);
 
-    // Crear documentos en Firestore con un batch
+    // ── Crear documentos en Firestore (copa + 10 matches + lastMatches) ──
     const batch = writeBatch(db);
     const copaRef = doc(collection(db, 'copas'));
     const partidasArray = [];
-
-    // Guardar matchIds por posición para vincular lastMatches después
-    const matchIdsPorPosicion = [];
 
     for (let i = 0; i < 10; i++) {
       const matchRef = doc(collection(db, 'matches'));
@@ -210,7 +211,6 @@ export const copaSeederService = {
         fechaFinalizacion: serverTimestamp()
       });
 
-      // Crear entradas en lastMatches para cada jugador que participó en esta partida
       Object.entries(puntosParaMatches[i]).forEach(([playerId, datos]) => {
         if (datos.participó) {
           const lastMatchRef = doc(db, 'players', playerId, 'lastMatches', matchRef.id);
@@ -231,7 +231,6 @@ export const copaSeederService = {
         estado: 'cargada'
       });
 
-      matchIdsPorPosicion.push(matchRef.id);
       onProgress(`Partida ${i + 1}/10 preparada`);
     }
 
@@ -248,13 +247,20 @@ export const copaSeederService = {
     });
 
     await batch.commit();
+    onProgress('✅ Copa y partidas guardadas en Firestore');
 
-    // Recalcular last10Score para cada jugador (después del commit, ya existen los lastMatches)
-    onProgress('Recalculando last10Score de cada jugador...');
+    // ── Fijar last10Score directamente en cada jugador ───────────────────
+    // Se asigna directamente el total del Excel en lugar de recalcular desde
+    // la subcollección, evitando problemas de ordenamiento por serverTimestamp.
+    onProgress('Actualizando last10Score en cada jugador...');
     await Promise.all(
       validos.map(j =>
-        rankingService.actualizarLast10Score(j.playerId)
-          .catch(e => onProgress(`⚠️ No se pudo calcular last10Score para ${j.nombre}: ${e.message}`))
+        updateDoc(doc(db, 'players', j.playerId), {
+          last10Score: j.puntosTotales,
+          last10ScoreUpdatedAt: serverTimestamp()
+        })
+          .then(() => onProgress(`✓ ${j.nombre}: last10Score = ${j.puntosTotales}`))
+          .catch(e => onProgress(`⚠️ No se pudo actualizar ${j.nombre}: ${e.message}`))
       )
     );
 
@@ -270,7 +276,7 @@ export const copaSeederService = {
     };
   },
 
-  /** Devuelve el snapshot de datos para mostrar en la UI antes de ejecutar */
+  /** Datos de previsualización para mostrar antes de ejecutar */
   getPreviewData() {
     return COPA_HISTORICA.map(j => ({
       nombre: j.nombre,
