@@ -96,51 +96,59 @@ export const rankingService = {
 
   /**
    * Obtener ranking global de todos los jugadores.
-   * Agrega puntosTotales de cada jugador en TODAS las copas (activas y finalizadas).
+   * Muestra el ranking de la copa ACTIVA; si no hay ninguna activa,
+   * muestra la más recientemente finalizada (= las últimas 10 partidas jugadas).
    */
   async obtenerRankingGlobal() {
     try {
-      const [copasSnap, playersSnap] = await Promise.all([
-        getDocs(collection(db, 'copas')),
-        getDocs(collection(db, 'players'))
-      ]);
+      // 1. Buscar copa activa
+      let copaData = null;
+      const activasSnap = await getDocs(
+        query(collection(db, 'copas'), where('estado', '==', 'activa'))
+      );
+      if (activasSnap.docs.length > 0) {
+        copaData = activasSnap.docs[0].data();
+      } else {
+        // 2. Tomar la copa finalizada más reciente (sin índice compuesto — ordenamos en JS)
+        const finalizadasSnap = await getDocs(
+          query(collection(db, 'copas'), where('estado', '==', 'finalizada'))
+        );
+        if (finalizadasSnap.docs.length > 0) {
+          const masReciente = finalizadasSnap.docs.sort((a, b) => {
+            const ta = a.data().fechaFin?.toMillis?.() ?? a.data().updatedAt?.toMillis?.() ?? 0;
+            const tb = b.data().fechaFin?.toMillis?.() ?? b.data().updatedAt?.toMillis?.() ?? 0;
+            return tb - ta;
+          })[0];
+          copaData = masReciente.data();
+        }
+      }
 
-      // Índice de jugadores para enriquecer con nombre, avatar y estadisticas
+      if (!copaData?.ranking) return [];
+
+      // 3. Enriquecer con datos del jugador (nombre real, avatar, estadísticas)
+      const playersSnap = await getDocs(collection(db, 'players'));
       const playersById = {};
       playersSnap.docs.forEach(d => { playersById[d.id] = d.data(); });
 
-      // Acumular puntos de copa por jugador
-      const acumulado = {};
-      copasSnap.docs.forEach(copaDoc => {
-        const ranking = copaDoc.data().ranking || {};
-        Object.entries(ranking).forEach(([playerId, datos]) => {
-          if (!acumulado[playerId]) {
-            acumulado[playerId] = { puntos: 0, partidas: 0 };
-          }
-          acumulado[playerId].puntos += datos.puntosTotales || 0;
-          acumulado[playerId].partidas += datos.participaciones || 0;
-        });
-      });
-
-      return Object.entries(acumulado)
-        .filter(([_, d]) => d.puntos > 0)
-        .sort((a, b) => b[1].puntos - a[1].puntos)
+      // 4. Construir ranking desde la copa seleccionada
+      return Object.entries(copaData.ranking)
+        .filter(([_, datos]) => (datos.puntosTotales || 0) > 0)
+        .sort((a, b) => (b[1].puntosTotales || 0) - (a[1].puntosTotales || 0))
         .slice(0, 100)
         .map(([id, datos], i) => {
           const player = playersById[id] || {};
-          const pts = parseFloat(datos.puntos.toFixed(1));
+          const pts = parseFloat((datos.puntosTotales || 0).toFixed(1));
+          const partidas = datos.participaciones || 0;
           return {
             posicion: i + 1,
             id,
-            nombre: player.name || 'Sin nombre',
+            nombre: player.name || datos.nombreJugador || 'Sin nombre',
             avatar: player.photoURL || null,
             puntos: pts,
-            partidas: datos.partidas,
+            partidas,
             victorias: player.estadisticas?.copas || 0,
             podioCopas: player.estadisticas?.podioCopas || 0,
-            puntosPromedio: datos.partidas > 0
-              ? parseFloat((datos.puntos / datos.partidas).toFixed(1))
-              : 0
+            puntosPromedio: partidas > 0 ? parseFloat((pts / partidas).toFixed(1)) : 0
           };
         });
     } catch (error) {

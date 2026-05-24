@@ -28,7 +28,7 @@ export default function RankingPage() {
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold text-white mb-4">🏆 Ranking Global</h1>
-          <p className="text-purple-300">Puntos acumulados en todas las copas</p>
+          <p className="text-purple-300">Ranking de la copa activa (últimas 10 partidas)</p>
         </div>
 
         {/* Contenido */}
@@ -77,7 +77,7 @@ function RankingTable({ ranking }) {
 
       {/* Nota al pie */}
       <div className="text-center text-sm text-purple-400 mt-8 px-4 py-4 bg-white/5 rounded-lg border border-purple-500/30">
-        <p>* Puntos = Suma acumulada de puntos en todas las copas jugadas</p>
+        <p>* Puntos = Copa activa. Si no hay copa activa, se muestra la última copa finalizada.</p>
       </div>
     </div>
   );

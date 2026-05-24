@@ -156,7 +156,7 @@ function RankingRowCompact({ jugador }) {
           <p className="text-xl font-bold text-yellow-300">
             {jugador.puntos.toFixed(1)}
           </p>
-          <p className="text-xs text-gray-400">pts acumulados en copas</p>
+          <p className="text-xs text-gray-400">pts en esta copa</p>
         </div>
       </div>
     </Link>
