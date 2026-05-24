@@ -8,6 +8,7 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { db } from '@/firebase/config';
+import { rankingService } from '@/services/rankingService';
 
 /**
  * Datos de la copa histórica LCE leídos del Excel.
@@ -190,6 +191,9 @@ export const copaSeederService = {
     const copaRef = doc(collection(db, 'copas'));
     const partidasArray = [];
 
+    // Guardar matchIds por posición para vincular lastMatches después
+    const matchIdsPorPosicion = [];
+
     for (let i = 0; i < 10; i++) {
       const matchRef = doc(collection(db, 'matches'));
 
@@ -206,6 +210,20 @@ export const copaSeederService = {
         fechaFinalizacion: serverTimestamp()
       });
 
+      // Crear entradas en lastMatches para cada jugador que participó en esta partida
+      Object.entries(puntosParaMatches[i]).forEach(([playerId, datos]) => {
+        if (datos.participó) {
+          const lastMatchRef = doc(db, 'players', playerId, 'lastMatches', matchRef.id);
+          batch.set(lastMatchRef, {
+            matchId: matchRef.id,
+            puntos: datos.puntos.total,
+            esGanador: false,
+            participó: true,
+            createdAt: serverTimestamp()
+          });
+        }
+      });
+
       partidasArray.push({
         posicion: i + 1,
         matchId: matchRef.id,
@@ -213,6 +231,7 @@ export const copaSeederService = {
         estado: 'cargada'
       });
 
+      matchIdsPorPosicion.push(matchRef.id);
       onProgress(`Partida ${i + 1}/10 preparada`);
     }
 
@@ -229,6 +248,15 @@ export const copaSeederService = {
     });
 
     await batch.commit();
+
+    // Recalcular last10Score para cada jugador (después del commit, ya existen los lastMatches)
+    onProgress('Recalculando last10Score de cada jugador...');
+    await Promise.all(
+      validos.map(j =>
+        rankingService.actualizarLast10Score(j.playerId)
+          .catch(e => onProgress(`⚠️ No se pudo calcular last10Score para ${j.nombre}: ${e.message}`))
+      )
+    );
 
     onProgress(`✅ Copa Histórica LCE creada correctamente (ID: ${copaRef.id})`);
     if (noEncontrados.length > 0) {

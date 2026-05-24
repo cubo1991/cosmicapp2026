@@ -96,61 +96,32 @@ export const rankingService = {
 
   /**
    * Obtener ranking global de todos los jugadores.
-   * Muestra el ranking de la copa ACTIVA; si no hay ninguna activa,
-   * muestra la más recientemente finalizada (= las últimas 10 partidas jugadas).
+   * Ordena por last10Score: suma de las últimas 10 partidas jugadas por cada jugador,
+   * independientemente de la copa en que cayeron.
+   * Un jugador que dejó de jugar mantiene su puntaje de sus últimas 10 partidas.
    */
   async obtenerRankingGlobal() {
     try {
-      // 1. Buscar copa activa
-      let copaData = null;
-      const activasSnap = await getDocs(
-        query(collection(db, 'copas'), where('estado', '==', 'activa'))
-      );
-      if (activasSnap.docs.length > 0) {
-        copaData = activasSnap.docs[0].data();
-      } else {
-        // 2. Tomar la copa finalizada más reciente (sin índice compuesto — ordenamos en JS)
-        const finalizadasSnap = await getDocs(
-          query(collection(db, 'copas'), where('estado', '==', 'finalizada'))
-        );
-        if (finalizadasSnap.docs.length > 0) {
-          const masReciente = finalizadasSnap.docs.sort((a, b) => {
-            const ta = a.data().fechaFin?.toMillis?.() ?? a.data().updatedAt?.toMillis?.() ?? 0;
-            const tb = b.data().fechaFin?.toMillis?.() ?? b.data().updatedAt?.toMillis?.() ?? 0;
-            return tb - ta;
-          })[0];
-          copaData = masReciente.data();
-        }
-      }
-
-      if (!copaData?.ranking) return [];
-
-      // 3. Enriquecer con datos del jugador (nombre real, avatar, estadísticas)
       const playersSnap = await getDocs(collection(db, 'players'));
-      const playersById = {};
-      playersSnap.docs.forEach(d => { playersById[d.id] = d.data(); });
 
-      // 4. Construir ranking desde la copa seleccionada
-      return Object.entries(copaData.ranking)
-        .filter(([_, datos]) => (datos.puntosTotales || 0) > 0)
-        .sort((a, b) => (b[1].puntosTotales || 0) - (a[1].puntosTotales || 0))
+      return playersSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(j => (j.last10Score || 0) > 0)
+        .sort((a, b) => (b.last10Score || 0) - (a.last10Score || 0))
         .slice(0, 100)
-        .map(([id, datos], i) => {
-          const player = playersById[id] || {};
-          const pts = parseFloat((datos.puntosTotales || 0).toFixed(1));
-          const partidas = datos.participaciones || 0;
-          return {
-            posicion: i + 1,
-            id,
-            nombre: player.name || datos.nombreJugador || 'Sin nombre',
-            avatar: player.photoURL || null,
-            puntos: pts,
-            partidas,
-            victorias: player.estadisticas?.copas || 0,
-            podioCopas: player.estadisticas?.podioCopas || 0,
-            puntosPromedio: partidas > 0 ? parseFloat((pts / partidas).toFixed(1)) : 0
-          };
-        });
+        .map((j, i) => ({
+          posicion: i + 1,
+          id: j.id,
+          nombre: j.name || 'Sin nombre',
+          avatar: j.photoURL || null,
+          puntos: parseFloat((j.last10Score || 0).toFixed(1)),
+          partidas: j.stats?.partidas || 0,
+          victorias: j.estadisticas?.copas || 0,
+          podioCopas: j.estadisticas?.podioCopas || 0,
+          puntosPromedio: j.stats?.puntosPromedio
+            ? parseFloat(j.stats.puntosPromedio.toFixed(1))
+            : 0
+        }));
     } catch (error) {
       console.error('Error obteniendo ranking global:', error);
       throw error;
