@@ -1,0 +1,12 @@
+partida_nombre,fecha,jugador_id,jugador_nombre,puntos,es_ganador
+Torneo Regional - Ronda 1,2026-04-01,user_001,Juan García,8.5,true
+Torneo Regional - Ronda 1,2026-04-01,user_002,María López,5.2,false
+Torneo Regional - Ronda 1,2026-04-01,user_003,Carlos Díaz,7.0,false
+Torneo Regional - Ronda 1,2026-04-01,user_004,Ana Martínez,6.3,false
+Torneo Regional - Ronda 2,2026-04-02,user_001,Juan García,7.0,false
+Torneo Regional - Ronda 2,2026-04-02,user_002,María López,9.2,true
+Torneo Regional - Ronda 2,2026-04-02,user_003,Carlos Díaz,6.5,false
+Torneo Regional - Ronda 2,2026-04-02,user_005,Pedro Gómez,8.1,false
+Torneo Regional - Final,2026-04-03,user_002,María López,10.0,true
+Torneo Regional - Final,2026-04-03,user_001,Juan García,8.7,false
+Torneo Regional - Final,2026-04-03,user_003,Carlos Díaz,7.2,false

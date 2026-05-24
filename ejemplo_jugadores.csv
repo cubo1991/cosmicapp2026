@@ -1,0 +1,4 @@
+ID,Nombre,Email,Avatar,Partidas,Victorias,Promedio Puntos,Tasa Victorias %,Puntos Últimas 10,Rank Global,Fecha Creación,Última Partida
+player123,Juan Pérez,juan@email.com,avatar1.jpg,15,8,45.50,53.3,125.75,1,15/04/2026,20/04/2026
+player456,María García,maria@email.com,,12,6,38.25,50.0,98.50,2,10/04/2026,19/04/2026
+player789,"Carlos Rodríguez",carlos@email.com,avatar3.jpg,8,3,25.75,37.5,67.25,3,05/04/2026,18/04/2026
