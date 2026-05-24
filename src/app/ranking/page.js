@@ -5,9 +5,10 @@ import Link from 'next/link';
 import NavBar from '@/components/NavBar';
 import { rankingService } from '@/services/rankingService';
 
-/**
- * Página de Ranking Global Completo
- */
+const FD = "var(--font-display, 'Bebas Neue', Impact, sans-serif)";
+const FB = "var(--font-body, 'Exo 2', sans-serif)";
+const FM = "var(--font-mono, 'Space Mono', monospace)";
+
 export default function RankingPage() {
   const [ranking, setRanking] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,27 +22,37 @@ export default function RankingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div style={{ position: 'relative', zIndex: 1 }}>
       <NavBar />
 
-      <div className="container mx-auto px-4 py-12">
+      <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '48px 16px 80px' }}>
+
         {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold text-white mb-4">🏆 Ranking Global</h1>
-          <p className="text-purple-300">Suma de las últimas 10 partidas de cada jugador</p>
+        <div className="text-center" style={{ marginBottom: '52px' }}>
+          <p className="cosmic-label" style={{ marginBottom: '12px' }}>CLASIFICACIÓN GALÁCTICA</p>
+          <h1
+            style={{
+              fontFamily: FD,
+              fontSize: 'clamp(48px, 8vw, 80px)',
+              letterSpacing: '0.06em',
+              color: '#f0e8d6',
+              lineHeight: 1,
+              marginBottom: '10px',
+            }}
+          >
+            🏆 RANKING GLOBAL
+          </h1>
+          <p style={{ fontFamily: FB, color: '#8a7a9a', fontSize: '14px', letterSpacing: '0.05em' }}>
+            Suma de las últimas 10 partidas de cada jugador individualmente
+          </p>
         </div>
 
-        {/* Contenido */}
         {loading ? (
-          <SkeletonRankingPage />
+          <SkeletonTable />
         ) : error ? (
-          <div className="text-center text-red-400 py-12">
-            <p>{error}</p>
-          </div>
+          <div className="text-center py-12" style={{ color: '#e63946', fontFamily: FB }}>{error}</div>
         ) : ranking.length === 0 ? (
-          <div className="text-center text-purple-300 py-12">
-            <p>Sin datos de ranking aún.</p>
-          </div>
+          <div className="text-center py-12" style={{ color: '#8a7a9a', fontFamily: FB }}>Sin datos de ranking aún.</div>
         ) : (
           <RankingTable ranking={ranking} />
         )}
@@ -50,109 +61,130 @@ export default function RankingPage() {
   );
 }
 
-/**
- * Tabla de ranking completo
- */
 function RankingTable({ ranking }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b-2 border-purple-500/50">
-            <th className="text-left py-4 px-4 text-purple-300 font-semibold">#</th>
-            <th className="text-left py-4 px-4 text-purple-300 font-semibold">Jugador</th>
-            <th className="text-center py-4 px-4 text-purple-300 font-semibold">Puntos*</th>
-            <th className="text-center py-4 px-4 text-purple-300 font-semibold">Partidas</th>
-            <th className="text-center py-4 px-4 text-purple-300 font-semibold">Victorias</th>
-            <th className="text-center py-4 px-4 text-purple-300 font-semibold">Promedio</th>
-            <th className="text-center py-4 px-4 text-purple-300 font-semibold">Acción</th>
-          </tr>
-        </thead>
-        <tbody>
-          {ranking.map((jugador, idx) => (
-            <RankingTableRow key={jugador.id} jugador={jugador} index={idx} />
-          ))}
-        </tbody>
-      </table>
+    <div>
+      <div className="game-panel" style={{ overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid rgba(200,153,42,0.3)', background: 'rgba(200,153,42,0.04)' }}>
+                {['#', 'Jugador', 'Puntos*', 'Partidas', 'Copas', 'Promedio', ''].map((h, i) => (
+                  <th
+                    key={i}
+                    style={{
+                      fontFamily: FM,
+                      fontSize: '11px',
+                      letterSpacing: '0.2em',
+                      color: '#8a7a9a',
+                      padding: '16px',
+                      textAlign: h === 'Jugador' ? 'left' : 'center',
+                      fontWeight: 400,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ranking.map((jugador, idx) => (
+                <RankingRow key={jugador.id} jugador={jugador} index={idx} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-      {/* Nota al pie */}
-      <div className="text-center text-sm text-purple-400 mt-8 px-4 py-4 bg-white/5 rounded-lg border border-purple-500/30">
-        <p>* Puntos = Suma de las últimas 10 partidas jugadas por cada jugador individualmente</p>
+      <div
+        style={{
+          marginTop: '20px',
+          padding: '14px 20px',
+          background: 'rgba(17,13,30,0.6)',
+          border: '1px solid rgba(200,153,42,0.12)',
+          borderRadius: '6px',
+          textAlign: 'center',
+        }}
+      >
+        <p style={{ fontFamily: FM, fontSize: '11px', color: '#4a3a5a', letterSpacing: '0.08em' }}>
+          * Puntos = Suma de las últimas 10 partidas jugadas por cada jugador individualmente
+        </p>
       </div>
     </div>
   );
 }
 
-/**
- * Fila de tabla
- */
-function RankingTableRow({ jugador, index }) {
-  const getMedalEmoji = (pos) => {
-    if (pos === 1) return '🥇';
-    if (pos === 2) return '🥈';
-    if (pos === 3) return '🥉';
-    return `#${pos}`;
-  };
-
-  const rowBg = index < 3 ? 'bg-white/10' : 'hover:bg-white/5';
+function RankingRow({ jugador, index }) {
+  const isTop3 = index < 3;
+  const medals = ['🥇', '🥈', '🥉'];
 
   return (
-    <tr className={`border-b border-purple-500/20 ${rowBg} transition-colors`}>
-      {/* Posición */}
-      <td className="py-4 px-4">
-        <div className="text-2xl font-bold text-yellow-300">
-          {getMedalEmoji(jugador.posicion)}
-        </div>
+    <tr
+      style={{
+        borderBottom: '1px solid rgba(200,153,42,0.08)',
+        background: isTop3 ? 'rgba(200,153,42,0.03)' : 'transparent',
+        transition: 'background 0.2s',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(200,153,42,0.06)'; }}
+      onMouseLeave={e => { e.currentTarget.style.background = isTop3 ? 'rgba(200,153,42,0.03)' : 'transparent'; }}
+    >
+      <td style={{ padding: '16px', textAlign: 'center', width: '60px' }}>
+        {index < 3 ? (
+          <span style={{ fontSize: '22px' }}>{medals[index]}</span>
+        ) : (
+          <span style={{ fontFamily: FM, fontSize: '14px', color: 'rgba(200,153,42,0.5)' }}>#{jugador.posicion}</span>
+        )}
       </td>
 
-      {/* Nombre + Avatar */}
-      <td className="py-4 px-4">
+      <td style={{ padding: '16px' }}>
         <Link href={`/players/${jugador.id}`}>
-          <div className="flex items-center gap-3 cursor-pointer hover:text-purple-300 transition-colors">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
             {jugador.avatar ? (
               <img
                 src={jugador.avatar}
                 alt={jugador.nombre}
-                className="w-12 h-12 rounded-full object-cover border border-white/20"
+                style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover', border: '1px solid rgba(200,153,42,0.3)', flexShrink: 0 }}
               />
             ) : (
-              <div className="w-12 h-12 rounded-full bg-purple-500/30 flex items-center justify-center border border-white/20">
+              <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'rgba(100,50,180,0.2)', border: '1px solid rgba(200,153,42,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
                 👤
               </div>
             )}
             <div>
-              <p className="text-white font-semibold">{jugador.nombre}</p>
-              <p className="text-xs text-gray-400">{jugador.id}</p>
+              <p style={{ fontFamily: FD, fontSize: '16px', letterSpacing: '0.06em', color: '#f0e8d6', lineHeight: 1 }}>{jugador.nombre}</p>
+              <p style={{ fontFamily: FM, fontSize: '10px', color: '#4a3a5a', marginTop: '3px' }}>{jugador.id.slice(0, 12)}…</p>
             </div>
           </div>
         </Link>
       </td>
 
-      {/* Puntos */}
-      <td className="py-4 px-4 text-center">
-        <p className="text-xl font-bold text-yellow-300">{jugador.puntos.toFixed(1)}</p>
+      <td style={{ padding: '16px', textAlign: 'center' }}>
+        <span style={{ fontFamily: FM, fontSize: '22px', fontWeight: 700, color: '#c8992a' }}>
+          {jugador.puntos.toFixed(1)}
+        </span>
       </td>
 
-      {/* Partidas */}
-      <td className="py-4 px-4 text-center">
-        <p className="text-white font-semibold">{jugador.partidas}</p>
+      <td style={{ padding: '16px', textAlign: 'center' }}>
+        <span style={{ fontFamily: FB, fontSize: '15px', color: '#f0e8d6', fontWeight: 600 }}>{jugador.partidas}</span>
       </td>
 
-      {/* Victorias */}
-      <td className="py-4 px-4 text-center">
-        <p className="text-white font-semibold">{jugador.victorias}</p>
+      <td style={{ padding: '16px', textAlign: 'center' }}>
+        <span style={{ fontFamily: FB, fontSize: '15px', color: '#f0e8d6', fontWeight: 600 }}>{jugador.victorias}</span>
       </td>
 
-      {/* Promedio */}
-      <td className="py-4 px-4 text-center">
-        <p className="text-white font-semibold">{jugador.puntosPromedio.toFixed(1)}</p>
+      <td style={{ padding: '16px', textAlign: 'center' }}>
+        <span style={{ fontFamily: FB, fontSize: '15px', color: '#f0e8d6', fontWeight: 600 }}>{jugador.puntosPromedio.toFixed(1)}</span>
       </td>
 
-      {/* Acción */}
-      <td className="py-4 px-4 text-center">
+      <td style={{ padding: '16px', textAlign: 'center' }}>
         <Link href={`/players/${jugador.id}`}>
-          <button className="px-4 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded transition-colors">
-            Ver
+          <button
+            style={{ fontFamily: FD, fontSize: '13px', letterSpacing: '0.1em', padding: '6px 18px', background: 'rgba(200,153,42,0.08)', border: '1px solid rgba(200,153,42,0.3)', color: '#c8992a', borderRadius: '5px', cursor: 'pointer', transition: 'all 0.2s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(200,153,42,0.18)'; e.currentTarget.style.color = '#e8c547'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(200,153,42,0.08)'; e.currentTarget.style.color = '#c8992a'; }}
+          >
+            VER
           </button>
         </Link>
       </td>
@@ -160,38 +192,12 @@ function RankingTableRow({ jugador, index }) {
   );
 }
 
-/**
- * Skeleton para tabla
- */
-function SkeletonRankingPage() {
+function SkeletonTable() {
   return (
-    <div className="space-y-4">
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b-2 border-purple-500/50">
-              <th className="py-4 px-4 h-6 bg-white/10 rounded animate-pulse"></th>
-              <th className="py-4 px-4 h-6 bg-white/10 rounded animate-pulse"></th>
-              <th className="py-4 px-4 h-6 bg-white/10 rounded animate-pulse"></th>
-              <th className="py-4 px-4 h-6 bg-white/10 rounded animate-pulse"></th>
-              <th className="py-4 px-4 h-6 bg-white/10 rounded animate-pulse"></th>
-              <th className="py-4 px-4 h-6 bg-white/10 rounded animate-pulse"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(i => (
-              <tr key={i} className="border-b border-purple-500/20">
-                <td className="py-4 px-4 h-16 bg-white/5 rounded animate-pulse"></td>
-                <td className="py-4 px-4 h-16 bg-white/5 rounded animate-pulse"></td>
-                <td className="py-4 px-4 h-16 bg-white/5 rounded animate-pulse"></td>
-                <td className="py-4 px-4 h-16 bg-white/5 rounded animate-pulse"></td>
-                <td className="py-4 px-4 h-16 bg-white/5 rounded animate-pulse"></td>
-                <td className="py-4 px-4 h-16 bg-white/5 rounded animate-pulse"></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <div className="game-panel" style={{ overflow: 'hidden' }}>
+      {[...Array(10)].map((_, i) => (
+        <div key={i} className="animate-pulse" style={{ height: '68px', background: 'rgba(200,153,42,0.03)', borderBottom: '1px solid rgba(200,153,42,0.06)' }} />
+      ))}
     </div>
   );
 }

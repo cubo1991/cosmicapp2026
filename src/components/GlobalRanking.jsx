@@ -4,63 +4,81 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { rankingService } from "@/services/rankingService";
 
+const FD = "var(--font-display, 'Bebas Neue', Impact, sans-serif)";
+const FB = "var(--font-body, 'Exo 2', sans-serif)";
+const FM = "var(--font-mono, 'Space Mono', monospace)";
+
 export default function GlobalRanking() {
   const [ranking, setRanking] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    rankingService.obtenerRankingGlobal()
-      .then(data => setRanking(data.slice(0, 10)))
+    rankingService
+      .obtenerRankingGlobal()
+      .then((data) => setRanking(data.slice(0, 10)))
       .catch(() => setError("Error al cargar el ranking"))
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) {
-    return <SkeletonRanking />;
-  }
+  if (loading) return <SkeletonRanking />;
 
-  if (error) {
+  if (error)
     return (
-      <div className="text-center text-red-400 py-8">
-        <p>{error}</p>
+      <div className="text-center py-8" style={{ color: "#e63946", fontFamily: FB }}>
+        {error}
       </div>
     );
-  }
 
-  if (ranking.length === 0) {
+  if (ranking.length === 0)
     return (
-      <div className="text-center text-purple-300 py-8">
-        <p>Sin datos de ranking aún. ¡Crea tu primera partida!</p>
+      <div className="text-center py-8" style={{ color: "#8a7a9a", fontFamily: FB }}>
+        Sin datos de ranking aún. ¡Crea tu primera partida!
       </div>
     );
-  }
 
   return (
-    <div className="space-y-4">
-      {/* Top 3 Destacado */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div>
+      {/* Top 3 */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
         {ranking.slice(0, 3).map((jugador, idx) => (
-          <RankingCardTop3
-            key={jugador.id}
-            jugador={jugador}
-            posicion={idx + 1}
-          />
+          <RankingCardTop3 key={jugador.id} jugador={jugador} posicion={idx + 1} />
         ))}
       </div>
 
-      {/* Top 4-10 */}
-      <div className="space-y-2">
+      {/* Pos 4–10 */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
         {ranking.slice(3, 10).map((jugador) => (
           <RankingRowCompact key={jugador.id} jugador={jugador} />
         ))}
       </div>
 
-      {/* Enlace a ranking completo */}
+      {/* Link ranking completo */}
       <div className="text-center mt-8">
         <Link href="/ranking">
-          <button className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-semibold">
-            Ver Ranking Completo
+          <button
+            style={{
+              fontFamily: FD,
+              fontSize: "15px",
+              letterSpacing: "0.15em",
+              padding: "11px 32px",
+              background: "rgba(200,153,42,0.1)",
+              border: "1px solid rgba(200,153,42,0.4)",
+              color: "#c8992a",
+              borderRadius: "6px",
+              cursor: "pointer",
+              transition: "all 0.3s ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(200,153,42,0.2)";
+              e.currentTarget.style.color = "#e8c547";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(200,153,42,0.1)";
+              e.currentTarget.style.color = "#c8992a";
+            }}
+          >
+            VER RANKING COMPLETO
           </button>
         </Link>
       </div>
@@ -68,129 +86,243 @@ export default function GlobalRanking() {
   );
 }
 
-/**
- * Tarjeta destacada para top 3
- */
-function RankingCardTop3({ jugador, posicion }) {
-  const medalEmoji = ["🥇", "🥈", "🥉"][posicion - 1];
-  const bgColor = [
-    "from-yellow-500/20 to-yellow-600/20",
-    "from-slate-400/20 to-slate-500/20",
-    "from-orange-600/20 to-orange-700/20",
-  ][posicion - 1];
-  const borderColor = [
-    "border-yellow-500/50",
-    "border-slate-400/50",
-    "border-orange-600/50",
-  ][posicion - 1];
+/* ── Top 3 cards ─────────────────────────────────────────────────── */
 
+const TOP3_CONFIG = [
+  {
+    medal: "🥇",
+    borderColor: "rgba(232,197,71,0.5)",
+    bg: "rgba(232,197,71,0.06)",
+    glow: "rgba(232,197,71,0.18)",
+    textColor: "#e8c547",
+  },
+  {
+    medal: "🥈",
+    borderColor: "rgba(160,174,192,0.4)",
+    bg: "rgba(160,174,192,0.05)",
+    glow: "rgba(160,174,192,0.12)",
+    textColor: "#a0aec0",
+  },
+  {
+    medal: "🥉",
+    borderColor: "rgba(205,127,50,0.4)",
+    bg: "rgba(205,127,50,0.06)",
+    glow: "rgba(205,127,50,0.15)",
+    textColor: "#cd7f32",
+  },
+];
+
+function RankingCardTop3({ jugador, posicion }) {
+  const cfg = TOP3_CONFIG[posicion - 1];
   return (
     <Link href={`/players/${jugador.id}`}>
       <div
-        className={`bg-gradient-to-br ${bgColor} border ${borderColor} rounded-lg p-6 text-center hover:scale-105 transition-transform cursor-pointer backdrop-blur-sm`}
+        className="game-panel-hover"
+        style={{
+          position: "relative",
+          background: cfg.bg,
+          border: `1px solid ${cfg.borderColor}`,
+          borderRadius: "8px",
+          padding: "24px 16px",
+          textAlign: "center",
+          cursor: "pointer",
+          transition: "all 0.3s ease",
+          boxShadow: `0 0 20px ${cfg.glow}, inset 0 0 30px rgba(0,0,0,0.3)`,
+        }}
       >
-        <div className="text-4xl mb-2">{medalEmoji}</div>
+        <div style={{ fontSize: "32px", marginBottom: "10px" }}>{cfg.medal}</div>
 
-        {jugador.avatar && (
+        {jugador.avatar ? (
           <img
             src={jugador.avatar}
             alt={jugador.nombre}
-            className="w-16 h-16 rounded-full mx-auto mb-3 object-cover border-2 border-white/30"
+            style={{
+              width: "56px",
+              height: "56px",
+              borderRadius: "50%",
+              objectFit: "cover",
+              margin: "0 auto 12px",
+              border: `2px solid ${cfg.borderColor}`,
+              display: "block",
+            }}
           />
+        ) : (
+          <div
+            style={{
+              width: "56px",
+              height: "56px",
+              borderRadius: "50%",
+              background: "rgba(100,50,180,0.2)",
+              border: `2px solid ${cfg.borderColor}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "22px",
+              margin: "0 auto 12px",
+            }}
+          >
+            👤
+          </div>
         )}
 
-        <h3 className="text-lg font-bold text-white truncate">
+        <h3
+          style={{
+            fontFamily: FD,
+            fontSize: "18px",
+            letterSpacing: "0.08em",
+            color: "#f0e8d6",
+            marginBottom: "6px",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
           {jugador.nombre}
         </h3>
-        <p className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-100 mt-2">
-          {jugador.puntos.toFixed(1)} pts
+
+        <p
+          style={{
+            fontFamily: FM,
+            fontSize: "28px",
+            fontWeight: 700,
+            color: cfg.textColor,
+            marginBottom: "10px",
+            textShadow: `0 0 12px ${cfg.glow}`,
+          }}
+        >
+          {jugador.puntos.toFixed(1)}
+          <span style={{ fontFamily: FB, fontSize: "12px", color: "#8a7a9a", marginLeft: "4px" }}>
+            pts
+          </span>
         </p>
 
-        <div className="text-xs text-purple-300 mt-2 space-y-1">
-          <p>Partidas en copa: {jugador.partidas}</p>
-          <p>Copas ganadas: {jugador.victorias}</p>
+        <div style={{ fontFamily: FB, fontSize: "11px", color: "#8a7a9a", lineHeight: 1.8 }}>
+          <p>Partidas: {jugador.partidas}</p>
+          <p>Copas: {jugador.victorias}</p>
         </div>
       </div>
     </Link>
   );
 }
 
-/**
- * Fila compacta para posiciones 4-10
- */
+/* ── Filas compactas 4–10 ────────────────────────────────────────── */
+
 function RankingRowCompact({ jugador }) {
   return (
     <Link href={`/players/${jugador.id}`}>
-      <div className="bg-white/5 hover:bg-white/10 border border-purple-500/30 hover:border-purple-500/60 rounded-lg p-4 transition-all flex items-center gap-4 cursor-pointer backdrop-blur-sm">
-        {/* Posición */}
-        <div className="text-center min-w-12">
-          <p className="text-2xl font-bold text-purple-400">
+      <div
+        className="game-panel-hover"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "16px",
+          padding: "14px 20px",
+          background: "rgba(17,13,30,0.7)",
+          border: "1px solid rgba(200,153,42,0.15)",
+          borderRadius: "7px",
+          cursor: "pointer",
+          transition: "all 0.25s ease",
+        }}
+      >
+        <div style={{ minWidth: "40px", textAlign: "center" }}>
+          <span style={{ fontFamily: FM, fontSize: "18px", fontWeight: 700, color: "rgba(200,153,42,0.6)" }}>
             #{jugador.posicion}
+          </span>
+        </div>
+
+        {jugador.avatar ? (
+          <img
+            src={jugador.avatar}
+            alt={jugador.nombre}
+            style={{
+              width: "40px",
+              height: "40px",
+              borderRadius: "50%",
+              objectFit: "cover",
+              border: "1px solid rgba(200,153,42,0.3)",
+              flexShrink: 0,
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: "40px",
+              height: "40px",
+              borderRadius: "50%",
+              background: "rgba(100,50,180,0.2)",
+              border: "1px solid rgba(200,153,42,0.2)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "16px",
+              flexShrink: 0,
+            }}
+          >
+            👤
+          </div>
+        )}
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p
+            style={{
+              fontFamily: FD,
+              fontSize: "16px",
+              letterSpacing: "0.06em",
+              color: "#f0e8d6",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              lineHeight: 1,
+            }}
+          >
+            {jugador.nombre}
+          </p>
+          <p style={{ fontFamily: FB, fontSize: "11px", color: "#8a7a9a", marginTop: "3px" }}>
+            {jugador.partidas} partidas
           </p>
         </div>
 
-        {/* Avatar + Nombre */}
-        <div className="flex-1 flex items-center gap-3">
-          {jugador.avatar ? (
-            <img
-              src={jugador.avatar}
-              alt={jugador.nombre}
-              className="w-12 h-12 rounded-full object-cover border border-white/20"
-            />
-          ) : (
-            <div className="w-12 h-12 rounded-full bg-purple-500/30 flex items-center justify-center border border-white/20">
-              👤
-            </div>
-          )}
-
-          <div>
-            <p className="text-white font-semibold">{jugador.nombre}</p>
-            <p className="text-xs text-purple-300">
-              {jugador.partidas} partidas
-            </p>
-          </div>
-        </div>
-
-        {/* Puntos */}
-        <div className="text-right">
-          <p className="text-xl font-bold text-yellow-300">
+        <div style={{ textAlign: "right", flexShrink: 0 }}>
+          <p style={{ fontFamily: FM, fontSize: "20px", fontWeight: 700, color: "#c8992a" }}>
             {jugador.puntos.toFixed(1)}
           </p>
-          <p className="text-xs text-gray-400">últimas 10 partidas</p>
+          <p style={{ fontFamily: FB, fontSize: "10px", color: "#4a3a5a" }}>últ. 10 partidas</p>
         </div>
       </div>
     </Link>
   );
 }
 
-/**
- * Skeleton loading
- */
+/* ── Skeleton ────────────────────────────────────────────────────── */
 function SkeletonRanking() {
   return (
-    <div className="space-y-4">
-      {/* Top 3 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="bg-white/5 rounded-lg p-6 animate-pulse">
-            <div className="h-12 bg-white/10 rounded-full mx-auto mb-3 w-12"></div>
-            <div className="h-6 bg-white/10 rounded mb-2"></div>
-            <div className="h-8 bg-white/10 rounded mb-2"></div>
-            <div className="h-4 bg-white/10 rounded"></div>
-          </div>
+          <div
+            key={i}
+            className="animate-pulse"
+            style={{
+              background: "rgba(17,13,30,0.8)",
+              border: "1px solid rgba(200,153,42,0.1)",
+              borderRadius: "8px",
+              height: "180px",
+            }}
+          />
         ))}
       </div>
-
-      {/* Rows */}
       {[1, 2, 3, 4, 5, 6, 7].map((i) => (
         <div
           key={i}
-          className="bg-white/5 rounded-lg p-4 h-16 animate-pulse flex items-center gap-4"
-        >
-          <div className="w-12 h-12 bg-white/10 rounded"></div>
-          <div className="flex-1 h-4 bg-white/10 rounded"></div>
-          <div className="w-20 h-4 bg-white/10 rounded"></div>
-        </div>
+          className="animate-pulse"
+          style={{
+            background: "rgba(17,13,30,0.7)",
+            border: "1px solid rgba(200,153,42,0.08)",
+            borderRadius: "7px",
+            height: "68px",
+            marginBottom: "8px",
+          }}
+        />
       ))}
     </div>
   );

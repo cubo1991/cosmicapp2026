@@ -557,3 +557,202 @@ justify-content: center;
     width: 100%;
   }
 }
+
+
+/* ══════════════════════════════════════════════════════════════════
+   COSMIC ENCOUNTER · Design System
+   Visual language inspired by Fantasy Flight Games
+══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Deep space palette */
+  --c-bg:       #09060f;
+  --c-surface:  #110d1e;
+  --c-surf2:    #1a1330;
+  --c-surf3:    #231a40;
+
+  /* Gold — FFG signature */
+  --c-gold:     #c8992a;
+  --c-gold-hi:  #e8c547;
+  --c-gold-dim: rgba(200, 153, 42, 0.25);
+
+  /* Cosmic teal */
+  --c-teal:     #26c6c3;
+  --c-teal-dim: rgba(38, 198, 195, 0.18);
+
+  /* Nebula purple */
+  --c-purple:   #a855f7;
+  --c-purple-dim: rgba(168, 85, 247, 0.18);
+
+  /* Text */
+  --c-text:     #f0e8d6;
+  --c-muted:    #8a7a9a;
+  --c-dim:      #4a3a5a;
+}
+
+/* ── Base overrides ── */
+body {
+  background-color: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font-body, 'Exo 2', system-ui, sans-serif);
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display, 'Bebas Neue', Impact, sans-serif);
+  letter-spacing: 0.05em;
+}
+
+/* ── Custom scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--c-bg); }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, var(--c-gold), var(--c-teal));
+  border-radius: 3px;
+}
+
+/* ── Animations ── */
+@keyframes star-twinkle {
+  0%, 100% { opacity: 0.15; transform: scale(0.8); }
+  50%       { opacity: 1;    transform: scale(1.3); }
+}
+
+@keyframes gold-shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+
+@keyframes cosmic-float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-8px); }
+}
+
+@keyframes pulse-gold {
+  0%, 100% { box-shadow: 0 0 5px rgba(200,153,42,0.2), 0 0 10px rgba(200,153,42,0.1); }
+  50%       { box-shadow: 0 0 20px rgba(200,153,42,0.5), 0 0 40px rgba(200,153,42,0.2); }
+}
+
+@keyframes scan-beam {
+  from { top: -15%; }
+  to   { top: 115%; }
+}
+
+/* ── Game Panel — FFG card-like borders ── */
+.game-panel {
+  position: relative;
+  background: rgba(17, 13, 30, 0.85);
+  border: 1px solid var(--c-gold-dim);
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 1px rgba(200, 153, 42, 0.06),
+    inset 0 0 40px rgba(100, 50, 180, 0.04),
+    0 8px 32px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.game-panel-hover {
+  transition: all 0.3s ease;
+}
+.game-panel-hover:hover {
+  border-color: rgba(200, 153, 42, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(200, 153, 42, 0.12),
+    inset 0 0 40px rgba(100, 50, 180, 0.08),
+    0 12px 40px rgba(0, 0, 0, 0.6),
+    0 0 25px rgba(200, 153, 42, 0.12);
+  transform: translateY(-3px);
+}
+
+/* ── Ornate panel (top + bottom diamond marker) ── */
+.game-panel-ornate::before,
+.game-panel-ornate::after {
+  content: '◆';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--c-gold);
+  opacity: 0.7;
+  background: var(--c-surface);
+  padding: 0 6px;
+  line-height: 1;
+}
+.game-panel-ornate::before { top: -6px; }
+.game-panel-ornate::after  { bottom: -6px; }
+
+/* ── Gold shimmer text ── */
+.gold-shimmer {
+  background: linear-gradient(90deg, var(--c-gold), var(--c-gold-hi), var(--c-gold));
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gold-shimmer 3s linear infinite;
+}
+
+/* ── Glow utilities ── */
+.glow-gold   { box-shadow: 0 0 18px rgba(200,153,42,0.4), 0 0 35px rgba(200,153,42,0.15); }
+.glow-teal   { box-shadow: 0 0 18px rgba(38,198,195,0.4), 0 0 35px rgba(38,198,195,0.15); }
+.glow-purple { box-shadow: 0 0 18px rgba(168,85,247,0.4), 0 0 35px rgba(168,85,247,0.15); }
+
+.text-glow-gold { text-shadow: 0 0 12px rgba(200,153,42,0.8), 0 0 25px rgba(200,153,42,0.35); }
+.text-glow-teal { text-shadow: 0 0 12px rgba(38,198,195,0.8), 0 0 25px rgba(38,198,195,0.35); }
+
+/* ── Cosmic grid overlay ── */
+.cosmic-grid {
+  background-image:
+    linear-gradient(rgba(200,153,42,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(200,153,42,0.025) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+/* ── Scan beam (decorative) ── */
+.scan-section {
+  position: relative;
+  overflow: hidden;
+}
+.scan-section::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 100px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(38, 198, 195, 0.025) 50%,
+    transparent 100%
+  );
+  animation: scan-beam 10s linear infinite;
+  pointer-events: none;
+}
+
+/* ── Section label ── */
+.cosmic-label {
+  font-family: var(--font-mono, 'Space Mono', monospace);
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  color: var(--c-teal);
+  text-transform: uppercase;
+}
+
+/* ── Ornamental divider ── */
+.cosmic-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--c-gold);
+  font-size: 10px;
+}
+.cosmic-divider::before,
+.cosmic-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--c-gold-dim));
+}
+.cosmic-divider::after {
+  background: linear-gradient(to left, transparent, var(--c-gold-dim));
+}
+
+/* ── Float animation ── */
+.float-anim { animation: cosmic-float 4s ease-in-out infinite; }
