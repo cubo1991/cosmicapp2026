@@ -119,11 +119,14 @@ export default function PlayerDetailPage() {
     );
   }
 
-  // Stats helpers
-  const partidas      = player.stats?.partidas || 0;
-  const victorias     = player.stats?.victorias || 0;
-  const promedio      = player.stats?.puntosPromedio || 0;
-  const tasaVictoria  = partidas > 0 ? (victorias / partidas * 100).toFixed(0) : 0;
+  // Stats helpers — use estadisticas (full historical) as source of truth;
+  // fall back to stats.* for players who only have the newer tracking
+  const partidas     = player.estadisticas?.jugadas  || player.stats?.partidas  || 0;
+  const victorias    = player.estadisticas?.victorias || player.stats?.victorias || 0;
+  const promedio     = partidas > 0 && (player.stats?.puntosPromedio || 0) > 0
+                         ? player.stats.puntosPromedio
+                         : 0;
+  const tasaVictoria = partidas > 0 ? (victorias / partidas * 100).toFixed(0) : 0;
   const last10Score   = player.last10Score || 0;
   const copasGanadas  = player.estadisticas?.copas || 0;
 

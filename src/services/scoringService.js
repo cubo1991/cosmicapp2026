@@ -382,22 +382,23 @@ export const scoringService = {
       const participo = resultado.participó !== false;
       const coloniasExternas = resultado.coloniasExternas ?? 0;
 
-      // Actualizar stats (promedio de puntos automatizado)
+      // Actualizar stats — solo cuando participó, para mantener
+      // stats.partidas sincronizado con estadisticas.jugadas
       const statsActuales = playerSnap.data().stats || {};
-      const nuevasPartidas = (statsActuales.partidas || 0) + 1;
       const nuevasVictorias = (statsActuales.victorias || 0) + (esGanador ? 1 : 0);
-      const puntosTotales = (statsActuales.puntosPromedio || 0) * (nuevasPartidas - 1) + puntosPartida;
-      const nuevoPuntoPromedio = puntosTotales / nuevasPartidas;
 
       const updates = {
-        'stats.partidas': nuevasPartidas,
         'stats.victorias': nuevasVictorias,
-        'stats.puntosPromedio': nuevoPuntoPromedio,
         'stats.ultimaPartida': serverTimestamp()
       };
 
-      // Actualizar estadisticas LCE solo para jugadores que participaron
       if (participo) {
+        const nuevasPartidas = (statsActuales.partidas || 0) + 1;
+        const puntosTotales = (statsActuales.puntosPromedio || 0) * (nuevasPartidas - 1) + puntosPartida;
+        const nuevoPuntoPromedio = puntosTotales / nuevasPartidas;
+
+        updates['stats.partidas']      = nuevasPartidas;
+        updates['stats.puntosPromedio'] = nuevoPuntoPromedio;
         updates['estadisticas.jugadas'] = increment(1);
         updates['estadisticas.colonias'] = increment(coloniasExternas);
         if (esGanador) {
@@ -408,9 +409,9 @@ export const scoringService = {
       await updateDoc(playerRef, updates);
 
       return {
-        partidas: nuevasPartidas,
+        partidas: updates['stats.partidas'] ?? statsActuales.partidas ?? 0,
         victorias: nuevasVictorias,
-        puntosPromedio: nuevoPuntoPromedio
+        puntosPromedio: updates['stats.puntosPromedio'] ?? statsActuales.puntosPromedio ?? 0
       };
     } catch (error) {
       console.error('Error actualizando estadísticas:', error);

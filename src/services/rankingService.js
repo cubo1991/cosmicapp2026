@@ -116,7 +116,7 @@ export const rankingService = {
           nombre: j.name || 'Sin nombre',
           avatar: j.photoURL || null,
           puntos: parseFloat((j.last10Score || 0).toFixed(1)),
-          partidas: j.stats?.partidas || 0,
+          partidas: j.estadisticas?.jugadas || j.stats?.partidas || 0,
           victorias: j.estadisticas?.copas || 0,
           podioCopas: j.estadisticas?.podioCopas || 0,
           puntosPromedio: j.stats?.puntosPromedio
