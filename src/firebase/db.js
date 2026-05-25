@@ -5,6 +5,9 @@ import {
   getDocs,
   doc,
   getDoc,
+  query,
+  where,
+  limit,
   serverTimestamp,
 } from "firebase/firestore";
 
@@ -78,13 +81,28 @@ export const getMatchById = async (matchId) => {
     throw new Error("ID de partida inválido");
   }
 
-  try {
-    const docRef = doc(db, "matches", matchId);
-    const docSnap = await getDoc(docRef);
+  const cleanId = matchId.trim();
 
+  try {
+    // 1. Try direct document ID lookup (fast path — used by URLs with full ID)
+    const docRef = doc(db, "matches", cleanId);
+    const docSnap = await getDoc(docRef);
     if (docSnap.exists()) {
-      if (isDev) console.log(`✓ Match ${matchId} retrieved`);
+      if (isDev) console.log(`✓ Match ${cleanId} retrieved by ID`);
       return { id: docSnap.id, ...docSnap.data() };
+    }
+
+    // 2. Fall back: look up by short code field (manual entry from share screen)
+    const q = query(
+      collection(db, "matches"),
+      where("codigo", "==", cleanId.toUpperCase()),
+      limit(1)
+    );
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      const d = snap.docs[0];
+      if (isDev) console.log(`✓ Match found by codigo: ${cleanId}`);
+      return { id: d.id, ...d.data() };
     }
 
     return null;

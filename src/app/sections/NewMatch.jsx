@@ -41,6 +41,7 @@ function NewMatch() {
   const [lastFormation, setLastFormation]   = useState(null);
 
   const codigoPartida    = useStore(s => s.codigoPartida);
+  const codigoCorto      = useStore(s => s.codigoCorto);
   const resetAliens      = useStore(s => s.setAliensPartida);
   const { players, loading: loadingPlayers } = usePlayers();
 
@@ -170,7 +171,7 @@ function NewMatch() {
   if (isCreating) return <LoadingOverlay message="Creando partida y asignando aliens..." />;
   if (partidaCreada) return (
     <div className="min-h-screen py-12 px-4" style={{ position: "relative", zIndex: 1 }}>
-      <div className="max-w-lg mx-auto"><ShareMatchCode code={codigoPartida} /></div>
+      <div className="max-w-lg mx-auto"><ShareMatchCode code={codigoPartida} codigoCorto={codigoCorto} /></div>
     </div>
   );
 

@@ -5,6 +5,11 @@ import { db } from '@/firebase/config';
 import { useStore } from '@/store/useStore';
 import { activeCopaService } from './activeCopaService';
 
+// 6-char uppercase code — avoids 0/O and 1/I confusion
+const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const generateCodigoCorto = () =>
+  Array.from({ length: 6 }, () => CHARS[Math.floor(Math.random() * CHARS.length)]).join('');
+
 /**
  * Crear una partida en Firestore
  * AUTOMÁTICAMENTE:
@@ -21,9 +26,12 @@ export const createMatch = async (matchData) => {
       throw new Error('Datos de partida inválidos');
     }
 
+    const codigoCorto = generateCodigoCorto();
+
     // Crear datos para Firestore
     const datosPartida = {
       nombre: matchData.nombre || 'Partida sin nombre',
+      codigo: codigoCorto,           // Short human-readable code for sharing
       copId: null, // Se asignará automáticamente SI asociarACopa === true
       ligaId: matchData.ligaId || null,
       estado: 'activa',
@@ -54,6 +62,7 @@ export const createMatch = async (matchData) => {
 
     // Actualizar store global
     useStore.getState().setCodigoPartida(docRef.id);
+    useStore.getState().setCodigoCorto(codigoCorto);
 
     return docRef.id;
   } catch (error) {

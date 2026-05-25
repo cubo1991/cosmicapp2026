@@ -6,18 +6,24 @@ const FD = "var(--font-display, 'Bebas Neue', Impact, sans-serif)";
 const FB = "var(--font-body, 'Exo 2', sans-serif)";
 const FM = "var(--font-mono, 'Space Mono', monospace)";
 
-export function ShareMatchCode({ code }) {
+/**
+ * code      — Firestore document ID (used in links / QR / navigation)
+ * codigoCorto — 6-char short code displayed to the user for manual entry
+ *               Falls back to `code` if not provided (legacy matches)
+ */
+export function ShareMatchCode({ code, codigoCorto }) {
   const [copied, setCopied] = useState(false);
 
-  const origin   = typeof window !== "undefined" ? window.location.origin : "";
-  const matchUrl = `${origin}/cargarPartida/${code}`;
-  const waLink   = `https://wa.me/?text=${encodeURIComponent(
-    `🎮 Únete a mi partida de CosmicAPP\n\nCódigo: ${code}\n\n${matchUrl}`
+  const displayCode = codigoCorto || code;   // what the user sees & copies
+  const origin      = typeof window !== "undefined" ? window.location.origin : "";
+  const matchUrl    = `${origin}/cargarPartida/${code}`;  // URL always uses full ID
+  const waLink      = `https://wa.me/?text=${encodeURIComponent(
+    `🎮 Únete a mi partida de CosmicAPP\n\nCódigo: ${displayCode}\n\n${matchUrl}`
   )}`;
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(matchUrl)}&size=180x180&bgcolor=110d1e&color=c8992a&margin=8`;
 
   const copyCode = async () => {
-    try { await navigator.clipboard.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 2200); }
+    try { await navigator.clipboard.writeText(displayCode); setCopied(true); setTimeout(() => setCopied(false), 2200); }
     catch {}
   };
 
@@ -47,11 +53,11 @@ export function ShareMatchCode({ code }) {
           CÓDIGO DE PARTIDA
         </p>
         <div style={{
-          fontFamily: FM, fontSize: "clamp(32px, 8vw, 48px)", fontWeight: 700,
-          color: "#c8992a", letterSpacing: "0.15em", marginBottom: "18px",
+          fontFamily: FM, fontSize: "clamp(40px, 10vw, 64px)", fontWeight: 700,
+          color: "#c8992a", letterSpacing: "0.25em", marginBottom: "18px",
           textShadow: "0 0 30px rgba(200,153,42,0.4)",
         }}>
-          {code}
+          {displayCode}
         </div>
         <button
           onClick={copyCode}
@@ -96,7 +102,7 @@ export function ShareMatchCode({ code }) {
             onMouseLeave={e => { e.currentTarget.style.background = "rgba(37,211,102,0.1)"; }}>
             📱 WhatsApp
           </a>
-          <a href={`sms:?body=${encodeURIComponent(`CosmicAPP — Código: ${code}`)}`}
+          <a href={`sms:?body=${encodeURIComponent(`CosmicAPP — Código: ${displayCode}`)}`}
             style={{
               flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
               padding: "12px", background: "rgba(100,130,255,0.08)",
@@ -112,8 +118,7 @@ export function ShareMatchCode({ code }) {
       </div>
 
       {/* Go to match */}
-      <Link href={`/cargarPartida/${code}`}
-        style={{ display: "block", width: "100%" }}>
+      <Link href={`/cargarPartida/${code}`} style={{ display: "block", width: "100%" }}>
         <button
           style={{
             width: "100%", padding: "14px",

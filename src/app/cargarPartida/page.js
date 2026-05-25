@@ -13,22 +13,21 @@ export default function CargarPartida() {
         e.preventDefault();
         setError('');
 
-        const trimmedId = id.trim().toUpperCase();
+        // Short codes (6 chars) are uppercase; full IDs are case-sensitive — preserve them
+        const trimmedId = id.trim().length <= 8 ? id.trim().toUpperCase() : id.trim();
 
         if (!trimmedId) {
             setError('Por favor ingresa un código de partida');
             return;
         }
 
-        if (trimmedId.length < 3) {
-            setError('El código debe tener al menos 3 caracteres');
+        if (trimmedId.length < 6) {
+            setError('El código debe tener al menos 6 caracteres');
             return;
         }
 
         try {
             setIsLoading(true);
-            // Validar que la partida existe antes de navegar
-            // (esto se puede mejorar verificando en Firebase)
             router.push(`/cargarPartida/${trimmedId}`);
         } catch (err) {
             setError('Error al cargar la partida');
@@ -66,7 +65,7 @@ export default function CargarPartida() {
                                 }}
                                 placeholder="Ej: ABC123"
                                 className="w-full px-4 py-3 border-2 border-white/20 bg-white/5 text-white rounded-lg focus:outline-none focus:border-purple-500 focus:bg-white/10 transition-all placeholder-gray-400 uppercase"
-                                maxLength="10"
+                                maxLength="20"
                                 autoComplete="off"
                             />
                         </div>

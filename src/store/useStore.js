@@ -2,7 +2,8 @@ import { create } from 'zustand'
 
 export const useStore = create((set) => ({
   // Partidas
-  codigoPartida: null,
+  codigoPartida: null,   // Firestore document ID (used in URLs)
+  codigoCorto: null,     // Short human-readable code (6 chars, for display/entry)
   aliensPartida: [],
   matchActual: null,
   
@@ -22,6 +23,7 @@ export const useStore = create((set) => ({
     aliensPartida: [...state.aliensPartida, ...newAliens]
   })),
   setCodigoPartida: (codigo) => set({ codigoPartida: codigo }),
+  setCodigoCorto: (codigo) => set({ codigoCorto: codigo }),
   setMatchActual: (match) => set({ matchActual: match }),
   
   // Métodos para Usuarios
@@ -48,6 +50,7 @@ export const useStore = create((set) => ({
   // Limpiar
   reset: () => set({
     codigoPartida: null,
+    codigoCorto: null,
     aliensPartida: [],
     matchActual: null,
     usuarioActual: null,
