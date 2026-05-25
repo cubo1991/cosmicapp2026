@@ -27,10 +27,10 @@ export const rankingService = {
    * - jugadoresConPuntos: { playerId: { nombre, puntos, esGanador, participó } }
    * - fechaPartida: timestamp o Date
    */
-  async registrarPartidaPorJugador(matchId, jugadoresConPuntos, fechaPartida) {
+  async registrarPartidaPorJugador(matchId, jugadoresConPuntos, fechaPartida, alienesPorPlayer = {}) {
     try {
       const batch = writeBatch(db);
-      
+
       Object.entries(jugadoresConPuntos).forEach(([playerId, datos]) => {
         // Solo registrar si el jugador participó
         if (datos.participó !== false) {
@@ -41,17 +41,18 @@ export const rankingService = {
             'lastMatches',
             matchId
           );
-          
+
           batch.set(matchSubcolRef, {
             matchId,
             puntos: datos.puntos?.total || 0,
             esGanador: datos.esGanador || false,
             participó: datos.participó !== false,
+            aliens: alienesPorPlayer[playerId] || [],
             createdAt: fechaPartida || serverTimestamp()
           });
         }
       });
-      
+
       await batch.commit();
       console.log('✓ Partidas registradas en subcolecciones');
     } catch (error) {

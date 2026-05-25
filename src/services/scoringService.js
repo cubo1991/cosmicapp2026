@@ -449,14 +449,15 @@ export const scoringService = {
       const match = matchSnap.data();
 
       // PASO 3: Actualizar match con los resultados
+      const ahora = typeof window !== 'undefined' ? window.location.hostname : 'server';
       await updateDoc(matchRef, {
         jugadores: resultados,
         resumen: resumen,
         estado: 'finalizada',
         auditoria: {
-          cargadaPor: 'usuario',
+          cargadaPor: ahora,
           fechaCarga: serverTimestamp(),
-          versionEsquema: '2.0'
+          versionEsquema: '2.1'
         },
         updatedAt: serverTimestamp()
       });
@@ -501,8 +502,23 @@ export const scoringService = {
             if (resultado) resultadosPorPlayerId[datos.playerId] = resultado;
           });
 
-          await rankingService.registrarPartidaPorJugador(matchId, resultadosPorPlayerId, new Date());
+          // Build alien map: playerId → [alienId, ...]
+          // Aliens are stored in the match's jugadores array
+          const alienesPorPlayer = {};
+          const matchJugadores = match.jugadores || [];
+          if (Array.isArray(matchJugadores)) {
+            matchJugadores.forEach(j => {
+              if (j.playerId && j.aliens?.length) {
+                alienesPorPlayer[j.playerId] = j.aliens;
+              }
+            });
+          }
 
+          await rankingService.registrarPartidaPorJugador(
+            matchId, resultadosPorPlayerId, new Date(), alienesPorPlayer
+          );
+
+          // Batch last10Score updates + stats sequentially (reads needed for avg calc)
           await Promise.all(
             Object.entries(resultadosPorPlayerId).map(([playerId, resultado]) =>
               Promise.all([

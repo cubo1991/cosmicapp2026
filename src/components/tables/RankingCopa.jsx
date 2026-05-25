@@ -125,7 +125,7 @@ export default function RankingCopa({ copaId }) {
                       {entrada.nombreJugador}
                     </td>
                     <td className="border-r border-gray-200 px-4 py-3 text-center text-gray-700">
-                      {entrada.participaciones || 0}
+                      {Object.values(entrada.participacionesPorPosicion || {}).filter(Boolean).length}
                     </td>
                     <td className="px-4 py-3 text-right font-bold text-blue-600 text-lg">
                       {(entrada.puntosTotales || 0).toFixed(2)}

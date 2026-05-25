@@ -40,17 +40,17 @@ export default function AdminGenerarPartidas() {
     try {
       const jugadoresDB = await playerService.obtenerTodos();
 
-      if (jugadoresDB.length < 2) {
+      if (jugadoresDB.length < 3) {
         throw new Error(
-          `Necesitás al menos 2 jugadores registrados. Hay ${jugadoresDB.length}.`
+          `Necesitás al menos 3 jugadores registrados. Hay ${jugadoresDB.length}.`
         );
       }
 
       addLog(`Jugadores disponibles: ${jugadoresDB.length}`);
 
       for (let i = 1; i <= 10; i++) {
-        // Seleccionar entre 2 y min(5, total) jugadores al azar
-        const cantJugadores = Math.min(randInt(2, 5), jugadoresDB.length);
+        // Seleccionar entre 3 y min(8, total) jugadores al azar
+        const cantJugadores = Math.min(randInt(3, 8), jugadoresDB.length);
         const jugadoresSeleccionados = shuffle(jugadoresDB).slice(0, cantJugadores);
         const coloresSeleccionados = shuffle(COLORES).slice(0, cantJugadores);
 
@@ -91,7 +91,7 @@ export default function AdminGenerarPartidas() {
           puntosInput[player.id] = {
             nombre: player.name,
             playerId: player.id,
-            CI: randInt(0, 7),
+            CI: randInt(0, 5),
             CE: randInt(0, 5),
             ganador: idsGanadores.has(player.id),
             participó: true,
@@ -142,8 +142,8 @@ export default function AdminGenerarPartidas() {
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-sm text-blue-800 space-y-1">
         <p><strong>Por cada partida:</strong></p>
         <ul className="list-disc list-inside space-y-0.5">
-          <li>2–5 jugadores elegidos al azar</li>
-          <li>Colonias Internas: 0–7 | Colonias Externas: 0–5</li>
+          <li>3–8 jugadores elegidos al azar</li>
+          <li>Colonias Internas: 0–5 | Colonias Externas: 0–5</li>
           <li>1 ganador siempre (o 2 si hay 4+ jugadores, con 25% probabilidad)</li>
           <li>Se asigna a la copa activa y se actualizan stats de jugadores</li>
         </ul>

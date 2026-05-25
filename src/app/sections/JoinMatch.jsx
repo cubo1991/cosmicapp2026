@@ -1,408 +1,451 @@
 "use client";
 import { getAlienById, getMatchById } from "@/firebase/db";
-import { useEffect, useState } from "react";
-import { doc, updateDoc } from "firebase/firestore";
-import { db } from "@/firebase/config";
+import { useEffect, useState, useMemo } from "react";
 import { AlienCard } from "../components/alienCard";
 import { LoadingOverlay } from "../components/LoadingOverlay";
 import { ErrorState } from "../components/ErrorState";
 import { activeCopaService } from "@/services/activeCopaService";
 import { scoringService } from "@/services/scoringService";
 
+const FD = "var(--font-display, 'Bebas Neue', Impact, sans-serif)";
+const FB = "var(--font-body, 'Exo 2', sans-serif)";
+const FM = "var(--font-mono, 'Space Mono', monospace)";
+
+// ── Live points calculation ──────────────────────────────────────
+function calcularPreview(puntos) {
+  const participantes = Object.values(puntos).filter(p => p.participó);
+  const nP = participantes.length;
+  const nG = participantes.filter(p => p.ganador).length;
+  const ptsV = nG > 0 ? nP / nG : 0;
+  const resultado = {};
+  Object.entries(puntos).forEach(([k, d]) => {
+    const colonias = (d.CI || 0) + (d.CE || 0) * 2;
+    const victoria = d.participó && d.ganador ? ptsV : 0;
+    resultado[k] = { total: parseFloat((colonias + victoria).toFixed(2)) };
+  });
+  return { resultado, nP, nG, ptsV };
+}
+
 const JoinMatch = ({ matchId }) => {
-  const [match, setMatch] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [match,           setMatch]           = useState(null);
+  const [loading,         setLoading]         = useState(true);
+  const [error,           setError]           = useState(null);
   const [revealedPlayers, setRevealedPlayers] = useState({});
+  const [puntos,          setPuntos]          = useState({});
+  const [guardando,       setGuardando]       = useState(false);
+  const [step,            setStep]            = useState("view"); // 'view' | 'form' | 'confirm' | 'success' | 'copa-ceremony'
+  const [mensajeExito,    setMensajeExito]    = useState(null);
+  const [copaFinalizada,  setCopaFinalizada]  = useState(null); // { nombre, podio }
 
-  // NUEVO: Estado para puntos
-  const [puntos, setPuntos] = useState({});
-  const [guardando, setGuardando] = useState(false);
-  const [mostrarFormulario, setMostrarFormulario] = useState(false);
-  const [mensajeExito, setMensajeExito] = useState(null);
-
+  // ── Load match ──────────────────────────────────────────────
   useEffect(() => {
     const fetchMatch = async () => {
       try {
         setLoading(true);
         const partida = await getMatchById(matchId);
-
         if (!partida) {
-          setError({
-            title: "Partida no encontrada",
-            message: `El código "${matchId}" no existe o ha expirado.`,
-            action: {
-              href: "/cargarPartida",
-              label: "Intentar con otro código",
-            },
-          });
-          setLoading(false);
-          return;
+          setError({ title: "Partida no encontrada", message: `El código "${matchId}" no existe.`, action: { href: "/cargarPartida", label: "Intentar con otro código" } });
+          setLoading(false); return;
         }
-
         setMatch(partida);
 
-        // NUEVO: Inicializar estado de puntos con playerId como clave
         const puntosPorJugador = {};
         if (Array.isArray(partida.jugadores)) {
-          partida.jugadores.forEach((jugador, idx) => {
-            // Usar playerId si existe, si no usar color + nombre, o como fallback usar índice
-            const identificador = jugador.playerId || `${jugador.color || jugador.nombre || idx}`;
-            puntosPorJugador[identificador] = {
-              nombre: jugador.nombre,
-              playerId: jugador.playerId || null,
-              color: jugador.color,
-              CI: 0,
-              CE: 0,
-              ganador: false,
-              participó: true
+          partida.jugadores.forEach((j, idx) => {
+            const key = j.playerId || `${j.color || j.nombre || idx}`;
+            puntosPorJugador[key] = {
+              nombre: j.nombre, playerId: j.playerId || null, color: j.color,
+              CI: 0, CE: 0, ganador: false, participó: true,
             };
           });
         }
         setPuntos(puntosPorJugador);
         setError(null);
       } catch (err) {
-        console.error("Error al obtener la partida:", err);
-        setError({
-          title: "Error al cargar",
-          message:
-            "No pudimos conectar con el servidor. Por favor intenta más tarde.",
-          action: { href: "/", label: "Volver al inicio" },
-        });
-      } finally {
-        setLoading(false);
-      }
+        setError({ title: "Error al cargar", message: "No se pudo conectar con el servidor.", action: { href: "/", label: "Volver al inicio" } });
+      } finally { setLoading(false); }
     };
-
     if (matchId) fetchMatch();
   }, [matchId]);
 
-  const toggleReveal = (playerKey) => {
-    setRevealedPlayers((prev) => ({
-      ...prev,
-      [playerKey]: !prev[playerKey],
-    }));
-  };
+  const preview = useMemo(() => calcularPreview(puntos), [puntos]);
 
-  // NUEVO: Cambiar valores de puntos (usa playerId o identificador de visitante)
-  const handleChangePuntos = (playerKey, campo, valor) => {
+  const jugadoresArray = match
+    ? Array.isArray(match.jugadores) ? match.jugadores : Object.values(match.jugadores)
+    : [];
+
+  // ── Handlers ──────────────────────────────────────────────
+  const toggleReveal = (k) => setRevealedPlayers(p => ({ ...p, [k]: !p[k] }));
+
+  const handleChange = (key, campo, valor) => {
     setPuntos(prev => ({
       ...prev,
-      [playerKey]: {
-        ...prev[playerKey],
-        [campo]: campo === 'ganador' || campo === 'participó' ? !prev[playerKey][campo] : parseInt(valor) || 0
-      }
+      [key]: {
+        ...prev[key],
+        [campo]: (campo === 'ganador' || campo === 'participó')
+          ? !prev[key][campo]
+          : Math.max(0, parseInt(valor) || 0),
+      },
     }));
   };
 
-  // NUEVO: Guardar resultados
-  const handleGuardarResultados = async (e) => {
+  const goToConfirm = (e) => {
     e.preventDefault();
-    setGuardando(true);
-    setMensajeExito(null);
-
-    try {
-      // Validación: debe haber participantes y ganadores
-      const participantes = Object.values(puntos).filter(p => p.participó).length;
-      const ganadores = Object.values(puntos).filter(p => p.participó && p.ganador).length;
-
-      if (participantes === 0) {
-        throw new Error('Debe haber al menos un participante');
-      }
-
-      if (ganadores === 0) {
-        throw new Error('Debe haber al menos un ganador');
-      }
-
-      // Asegurar que copa activa existe y obtener partida de copa
-      const copaActiva = await activeCopaService.obtenerOCrearCopaActiva();
-      
-      let copId = match.copId;
-      let posicion = match.posicion;
-
-      // Si partida no tiene copa, asignarla automáticamente
-      if (!copId) {
-        const resultado = await activeCopaService.agregarPartidaAutomatica(matchId);
-        copId = resultado.copaId;
-        posicion = resultado.posicion;
-      }
-
-      // Finalizar partida con copa (integrado)
-      const resultado = await scoringService.finalizarPartidaConCopa(matchId, puntos);
-
-      // Mostrar éxito y recargar
-      setMensajeExito('✓ Resultados guardados correctamente');
-      setMostrarFormulario(false);
-
-      // Actualizar match en interfaz
-      const matchActualizado = await getMatchById(matchId);
-      setMatch(matchActualizado);
-    } catch (err) {
-      console.error('Error guardando resultados:', err);
-      setError({
-        title: 'Error al guardar',
-        message: err.message || 'No se pudieron guardar los resultados',
-        action: { href: '/cargarPartida', label: 'Volver' }
-      });
-    } finally {
-      setGuardando(false);
+    if (preview.nG === 0) {
+      alert("Debe haber al menos un ganador");
+      return;
     }
+    setStep("confirm");
   };
 
-  if (loading) {
-    return <LoadingOverlay message="Cargando partida..." />;
-  }
+  const handleGuardar = async () => {
+    setGuardando(true);
+    try {
+      const participantes = Object.values(puntos).filter(p => p.participó).length;
+      const ganadores     = Object.values(puntos).filter(p => p.participó && p.ganador).length;
+      if (participantes === 0) throw new Error("Debe haber al menos un participante");
+      if (ganadores === 0)     throw new Error("Debe haber al menos un ganador");
 
-  if (error) {
+      // Assign copa if needed (only for copa matches)
+      if (match.asociarACopa !== false) {
+        await activeCopaService.obtenerOCrearCopaActiva();
+        if (!match.copId) {
+          await activeCopaService.agregarPartidaAutomatica(matchId);
+        }
+      }
+
+      const resultado = await scoringService.finalizarPartidaConCopa(matchId, puntos);
+
+      // Check if copa was closed (posicion 10)
+      const matchFresh = await getMatchById(matchId);
+      if (matchFresh?.posicion === 10 && matchFresh?.copId) {
+        // Try to get closed copa data
+        try {
+          const { doc: firestoreDoc, getDoc } = await import('firebase/firestore');
+          const { db } = await import('@/firebase/config');
+          const copaSnap = await getDoc(firestoreDoc(db, 'copas', matchFresh.copId));
+          if (copaSnap.exists() && copaSnap.data().estado === 'finalizada') {
+            const copaData = copaSnap.data();
+            const podio = Object.entries(copaData.ranking || {})
+              .sort((a, b) => (b[1].puntosTotales || 0) - (a[1].puntosTotales || 0))
+              .slice(0, 3)
+              .map(([pid, d], idx) => ({ pos: idx + 1, nombre: d.nombreJugador, puntos: d.puntosTotales }));
+            setCopaFinalizada({ nombre: copaData.nombre, podio });
+            setMatch(matchFresh);
+            setStep("copa-ceremony");
+            return;
+          }
+        } catch {}
+      }
+
+      setMensajeExito("✓ Resultados guardados correctamente");
+      const matchActualizado = await getMatchById(matchId);
+      setMatch(matchActualizado);
+      setStep("view");
+    } catch (err) {
+      console.error(err);
+      setError({ title: "Error al guardar", message: err.message || "No se pudieron guardar los resultados", action: { href: "/cargarPartida", label: "Volver" } });
+    } finally { setGuardando(false); }
+  };
+
+  // ── Guards ────────────────────────────────────────────────
+  if (loading) return <LoadingOverlay message="Cargando partida..." />;
+  if (error)   return <ErrorState title={error.title} message={error.message} action={error.action} />;
+  if (!match || jugadoresArray.length === 0)
+    return <ErrorState title="Partida vacía" message="Esta partida no tiene jugadores." action={{ href: "/", label: "Inicio" }} />;
+
+  // ── COPA CEREMONY ────────────────────────────────────────
+  if (step === "copa-ceremony" && copaFinalizada) {
+    const medals = ["🥇", "🥈", "🥉"];
+    const medalColors = ["#e8c547", "#a0aec0", "#cd7f32"];
     return (
-      <ErrorState
-        title={error.title}
-        message={error.message}
-        action={error.action}
-      />
-    );
-  }
-
-  if (
-    !match ||
-    !match.jugadores ||
-    (Array.isArray(match.jugadores) && match.jugadores.length === 0) ||
-    (typeof match.jugadores === 'object' && Object.keys(match.jugadores).length === 0)
-  ) {
-    return (
-      <ErrorState
-        title="Partida vacía"
-        message="Esta partida no tiene jugadores registrados."
-        action={{ href: "/", label: "Volver al inicio" }}
-      />
-    );
-  }
-
-  // Convertir jugadores a array si es necesario
-  const jugadoresArray = Array.isArray(match.jugadores) 
-    ? match.jugadores 
-    : Object.values(match.jugadores);
-
-  return (
-    <section className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-12 px-4">
-      <div className="container mx-auto max-w-4xl">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h2 className="text-5xl font-bold text-white mb-2">
-            🎮 Partida en Curso
-          </h2>
-          <div className="inline-block bg-purple-600 text-white px-6 py-2 rounded-full font-mono font-bold text-lg">
-            {matchId}
-          </div>
-          <p className="text-purple-200 mt-4">
-            {jugadoresArray.length} jugador{jugadoresArray.length !== 1 ? "es" : ""}
+      <section style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "32px 16px", position: "relative", zIndex: 1 }}>
+        <div style={{ maxWidth: "480px", width: "100%", textAlign: "center" }}>
+          <div style={{ fontSize: "56px", marginBottom: "16px" }}>🏆</div>
+          <p className="cosmic-label" style={{ marginBottom: "12px" }}>COPA FINALIZADA</p>
+          <h1 style={{ fontFamily: FD, fontSize: "clamp(36px, 8vw, 56px)", color: "#f0e8d6", letterSpacing: "0.06em", lineHeight: 1, marginBottom: "8px" }}>
+            {copaFinalizada.nombre}
+          </h1>
+          <p style={{ fontFamily: FB, color: "#8a7a9a", fontSize: "14px", marginBottom: "36px" }}>
+            La copa ha concluido. ¡Felicitaciones a los ganadores!
           </p>
-          {match.estado === 'finalizada' && (
-            <p className="text-green-400 mt-2 font-bold">✓ Partida Finalizada</p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "32px" }}>
+            {copaFinalizada.podio.map((p) => (
+              <div key={p.pos} style={{
+                display: "flex", alignItems: "center", gap: "16px",
+                padding: "16px 20px",
+                background: `rgba(${p.pos === 1 ? '232,197,71' : p.pos === 2 ? '160,174,192' : '205,127,50'},0.06)`,
+                border: `1px solid rgba(${p.pos === 1 ? '232,197,71' : p.pos === 2 ? '160,174,192' : '205,127,50'},0.25)`,
+                borderRadius: "10px",
+              }}>
+                <span style={{ fontSize: "28px" }}>{medals[p.pos - 1]}</span>
+                <div style={{ flex: 1, textAlign: "left" }}>
+                  <p style={{ fontFamily: FD, fontSize: "20px", color: "#f0e8d6", letterSpacing: "0.06em", lineHeight: 1 }}>{p.nombre}</p>
+                </div>
+                <span style={{ fontFamily: FM, fontSize: "22px", fontWeight: 700, color: medalColors[p.pos - 1] }}>
+                  {parseFloat(p.puntos?.toFixed(1) || 0)}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setStep("view")}
+            style={{
+              width: "100%", padding: "14px",
+              background: "linear-gradient(135deg, rgba(200,153,42,0.5), rgba(168,125,0,0.6))",
+              border: "1px solid rgba(200,153,42,0.4)", borderRadius: "8px",
+              color: "#f0e8d6", fontFamily: FD, fontSize: "20px", letterSpacing: "0.1em",
+              cursor: "pointer",
+            }}>
+            VER PARTIDA ✓
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  // ── CONFIRM SCREEN ───────────────────────────────────────
+  if (step === "confirm") {
+    return (
+      <section style={{ minHeight: "100vh", padding: "48px 16px", position: "relative", zIndex: 1 }}>
+        <div className="container mx-auto" style={{ maxWidth: "600px" }}>
+          <div className="text-center" style={{ marginBottom: "28px" }}>
+            <p className="cosmic-label" style={{ marginBottom: "8px" }}>CONFIRMACIÓN</p>
+            <h2 style={{ fontFamily: FD, fontSize: "clamp(28px, 6vw, 44px)", color: "#f0e8d6", letterSpacing: "0.06em", lineHeight: 1 }}>
+              ¿TODO CORRECTO?
+            </h2>
+            <p style={{ fontFamily: FM, fontSize: "11px", color: "#4a3a5a", marginTop: "8px" }}>
+              Victoria = {preview.nP}/{preview.nG} = <span style={{ color: "#c8992a" }}>{parseFloat(preview.ptsV.toFixed(2))} pts</span>
+            </p>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "24px" }}>
+            {Object.entries(puntos).map(([key, d]) => {
+              const pts = preview.resultado[key];
+              return (
+                <div key={key} style={{
+                  display: "flex", alignItems: "center", gap: "12px",
+                  padding: "14px 18px",
+                  background: d.participó ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.01)",
+                  border: `1px solid ${d.ganador ? "rgba(200,153,42,0.3)" : "rgba(255,255,255,0.06)"}`,
+                  borderRadius: "8px", opacity: d.participó ? 1 : 0.45,
+                }}>
+                  {d.color && <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: d.color, flexShrink: 0 }} />}
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontFamily: FB, fontSize: "14px", fontWeight: 600, color: "#f0e8d6", lineHeight: 1 }}>
+                      {d.ganador && <span style={{ color: "#c8992a", marginRight: "5px" }}>🏆</span>}
+                      {d.nombre}
+                    </p>
+                    {d.participó && (
+                      <p style={{ fontFamily: FM, fontSize: "10px", color: "#4a3a5a", marginTop: "3px" }}>
+                        CI×{d.CI} + CE×{d.CE}{d.ganador ? ` + V(${parseFloat(preview.ptsV.toFixed(2))})` : ""}
+                      </p>
+                    )}
+                  </div>
+                  <span style={{ fontFamily: FM, fontSize: "20px", fontWeight: 700, color: d.ganador ? "#c8992a" : d.participó ? "#f0e8d6" : "#2a1a3a" }}>
+                    {d.participó ? parseFloat(pts?.total?.toFixed(1) || "0") : "NO"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button type="button" onClick={() => setStep("form")} disabled={guardando}
+              style={{ flex: 1, padding: "13px", background: "rgba(255,255,255,0.04)",
+                border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px",
+                color: "#8a7a9a", fontFamily: FB, fontSize: "14px", cursor: "pointer" }}>
+              ← Corregir
+            </button>
+            <button type="button" onClick={handleGuardar} disabled={guardando}
+              style={{ flex: 2, padding: "13px",
+                background: guardando ? "rgba(38,198,195,0.05)" : "linear-gradient(135deg, rgba(38,198,195,0.6), rgba(26,180,180,0.7))",
+                border: "1px solid rgba(38,198,195,0.4)", borderRadius: "8px",
+                color: "#f0e8d6", fontFamily: FD, fontSize: "20px", letterSpacing: "0.1em",
+                cursor: guardando ? "not-allowed" : "pointer" }}>
+              {guardando ? "⏳ GUARDANDO..." : "CONFIRMAR ✓"}
+            </button>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // ── SCORING FORM ─────────────────────────────────────────
+  if (step === "form") {
+    return (
+      <section style={{ minHeight: "100vh", padding: "48px 16px", position: "relative", zIndex: 1 }}>
+        <div className="container mx-auto" style={{ maxWidth: "600px" }}>
+          <div className="text-center" style={{ marginBottom: "28px" }}>
+            <p className="cosmic-label" style={{ marginBottom: "8px" }}>CARGA DE RESULTADOS</p>
+            <h2 style={{ fontFamily: FD, fontSize: "clamp(28px, 6vw, 44px)", color: "#f0e8d6", letterSpacing: "0.06em", lineHeight: 1 }}>
+              CARGAR PUNTOS
+            </h2>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", marginTop: "10px",
+              padding: "5px 14px", background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: "20px" }}>
+              <span style={{ fontFamily: FM, fontSize: "11px", color: "#a855f7", letterSpacing: "0.1em" }}>
+                {matchId}
+              </span>
+            </div>
+          </div>
+
+          {/* Victory preview */}
+          {preview.nG > 0 && (
+            <div style={{ padding: "10px 16px", background: "rgba(200,153,42,0.06)",
+              border: "1px solid rgba(200,153,42,0.2)", borderRadius: "6px", marginBottom: "16px",
+              display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ fontFamily: FM, fontSize: "11px", color: "#4a3a5a", letterSpacing: "0.1em" }}>VICTORIA:</span>
+              <span style={{ fontFamily: FM, fontSize: "14px", fontWeight: 700, color: "#c8992a" }}>
+                {preview.nP} ÷ {preview.nG} = {parseFloat(preview.ptsV.toFixed(2))} pts
+              </span>
+            </div>
+          )}
+
+          <form onSubmit={goToConfirm}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px" }}>
+              {jugadoresArray.map((jugador, idx) => {
+                const key = jugador.playerId || `${jugador.color || jugador.nombre || idx}`;
+                const d = puntos[key] || {};
+                return (
+                  <InlineScoringCard
+                    key={key}
+                    keyId={key}
+                    jugador={jugador}
+                    data={d}
+                    pts={preview.resultado[key]}
+                    onChange={handleChange}
+                  />
+                );
+              })}
+            </div>
+
+            <div style={{ display: "flex", gap: "10px" }}>
+              <button type="button" onClick={() => setStep("view")}
+                style={{ padding: "13px 20px", background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.1)", borderRadius: "8px",
+                  color: "#8a7a9a", fontFamily: FB, fontSize: "14px", cursor: "pointer" }}>
+                ← Cancelar
+              </button>
+              <button type="submit" disabled={preview.nG === 0}
+                style={{ flex: 1, padding: "13px",
+                  background: preview.nG > 0
+                    ? "linear-gradient(135deg, rgba(168,85,247,0.65), rgba(139,92,246,0.8))"
+                    : "rgba(255,255,255,0.03)",
+                  border: `1px solid ${preview.nG > 0 ? "rgba(168,85,247,0.4)" : "rgba(255,255,255,0.06)"}`,
+                  borderRadius: "8px",
+                  color: preview.nG > 0 ? "#f0e8d6" : "#2a1a3a",
+                  fontFamily: FD, fontSize: "18px", letterSpacing: "0.1em",
+                  cursor: preview.nG > 0 ? "pointer" : "not-allowed" }}>
+                {preview.nG === 0 ? "MARCA UN GANADOR" : "REVISAR →"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+    );
+  }
+
+  // ── VIEW (main match view) ───────────────────────────────
+  return (
+    <section style={{ minHeight: "100vh", padding: "48px 16px", position: "relative", zIndex: 1 }}>
+      <div className="container mx-auto" style={{ maxWidth: "800px" }}>
+
+        {/* Header */}
+        <div className="text-center" style={{ marginBottom: "36px" }}>
+          <p className="cosmic-label" style={{ marginBottom: "10px" }}>PARTIDA EN CURSO</p>
+          <h2 style={{ fontFamily: FD, fontSize: "clamp(36px, 8vw, 56px)", color: "#f0e8d6", letterSpacing: "0.06em", lineHeight: 1, marginBottom: "10px" }}>
+            🎮 CÓSMICA
+          </h2>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px",
+            padding: "6px 18px", background: "rgba(168,85,247,0.08)",
+            border: "1px solid rgba(168,85,247,0.25)", borderRadius: "20px" }}>
+            <span style={{ fontFamily: FM, fontSize: "13px", color: "#a855f7", letterSpacing: "0.15em" }}>
+              {matchId}
+            </span>
+          </div>
+
+          {match.estado === "finalizada" && (
+            <div style={{ marginTop: "14px", display: "inline-flex", alignItems: "center", gap: "6px",
+              padding: "5px 14px", background: "rgba(38,198,195,0.08)",
+              border: "1px solid rgba(38,198,195,0.25)", borderRadius: "20px" }}>
+              <span style={{ fontFamily: FM, fontSize: "11px", color: "#26c6c3", letterSpacing: "0.12em" }}>
+                ✓ FINALIZADA
+              </span>
+            </div>
           )}
         </div>
 
-        {/* Mensaje de éxito */}
+        {/* Success message */}
         {mensajeExito && (
-          <div className="mb-8 bg-green-500/20 border border-green-500 rounded-lg p-4 text-green-200 text-center font-semibold">
+          <div style={{ marginBottom: "24px", padding: "14px 20px",
+            background: "rgba(38,198,195,0.08)", border: "1px solid rgba(38,198,195,0.25)",
+            borderRadius: "8px", textAlign: "center",
+            fontFamily: FB, color: "#26c6c3", fontSize: "14px" }}>
             {mensajeExito}
           </div>
         )}
 
-        {/* Info de estrategia */}
-        <div className="bg-blue-500/20 border border-blue-500 rounded-lg p-4 mb-8 text-blue-200 text-center">
-          💡 Los aliens están ocultos por estrategia. ¡Revela los tuyos cuando
-          quieras!
-        </div>
-
-        {/* Jugadores Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-          {jugadoresArray.map((jugador, index) => {
-            // Usar playerId si existe, si no usar color + nombre, o como fallback usar índice
-            const playerKey = jugador.playerId || `${jugador.color || jugador.nombre || index}`;
+        {/* Player cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-10">
+          {jugadoresArray.map((jugador, idx) => {
+            const key = jugador.playerId || `${jugador.color || jugador.nombre || idx}`;
             return (
               <PlayerCard
-                key={playerKey}
+                key={key}
                 jugador={jugador}
-                index={index}
-                playerKey={playerKey}
-                isRevealed={revealedPlayers[playerKey] || false}
-                onToggleReveal={() => toggleReveal(playerKey)}
+                index={idx}
+                isRevealed={revealedPlayers[key] || false}
+                onToggleReveal={() => toggleReveal(key)}
               />
             );
           })}
         </div>
 
-        {/* NUEVO: Botón para mostrar/ocultar formulario de puntos */}
-        {match.estado !== 'finalizada' && match.asociarACopa !== false && (
+        {/* Load points button — available for ALL matches that are not finalized */}
+        {match.estado !== "finalizada" && (
           <button
-            onClick={() => setMostrarFormulario(!mostrarFormulario)}
-            className="w-full mb-8 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-4 rounded-lg transition-all shadow-lg hover:shadow-xl"
-          >
-            {mostrarFormulario ? '❌ Cancelar' : '📊 Cargar Puntos'}
+            onClick={() => setStep("form")}
+            style={{
+              display: "block", width: "100%", padding: "15px",
+              background: "linear-gradient(135deg, rgba(38,198,195,0.5), rgba(26,180,180,0.65))",
+              border: "1px solid rgba(38,198,195,0.35)", borderRadius: "8px",
+              color: "#f0e8d6", fontFamily: FD, fontSize: "20px", letterSpacing: "0.1em",
+              cursor: "pointer", marginBottom: "14px", transition: "all 0.25s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.filter = "brightness(1.15)"; }}
+            onMouseLeave={e => { e.currentTarget.style.filter = ""; }}>
+            📊 CARGAR PUNTOS
           </button>
         )}
 
-        {/* Advertencia si partida no suma a copa */}
+        {/* Non-copa notice */}
         {match.asociarACopa === false && (
-          <div className="mb-8 bg-yellow-500/20 border border-yellow-500 rounded-lg p-4 text-yellow-200 text-center">
-            ⚠️ Esta partida tiene visitantes y NO suma a copa
+          <div style={{ marginBottom: "14px", padding: "12px 16px",
+            background: "rgba(255,185,0,0.06)", border: "1px solid rgba(255,185,0,0.2)",
+            borderRadius: "8px", fontFamily: FB, color: "#8a7a9a", fontSize: "13px", textAlign: "center" }}>
+            ⚠️ Esta partida tiene visitantes y no sumará al ranking de copa
           </div>
         )}
 
-        {/* NUEVO: Formulario de puntos (integrado) */}
-        {mostrarFormulario && match.estado !== 'finalizada' && (
-          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-8 border border-white/20 mb-8">
-            <h3 className="text-2xl font-bold text-white mb-6">📊 Carga de Resultados</h3>
-
-            <form onSubmit={handleGuardarResultados} className="space-y-6">
-              {/* Tabla de jugadores */}
-              <div className="overflow-x-auto border border-white/20 rounded-lg">
-                <table className="w-full text-sm text-white">
-                  <thead className="bg-purple-600/40">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-semibold">Jugador</th>
-                      <th className="px-4 py-3 text-center font-semibold">Participó</th>
-                      <th className="px-4 py-3 text-center font-semibold">CI</th>
-                      <th className="px-4 py-3 text-center font-semibold">CE</th>
-                      <th className="px-4 py-3 text-center font-semibold">Ganador</th>
-                      <th className="px-4 py-3 text-right font-semibold">Previsión</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/10">
-                    {jugadoresArray.map((jugador, idx) => {
-                      const playerKey = jugador.playerId || `${jugador.color || jugador.nombre || idx}`;
-                      const datosPuntos = puntos[playerKey] || {};
-                      const previsión = !datosPuntos.participó
-                        ? 'NO'
-                        : `${(datosPuntos.CI || 0) * 1 + (datosPuntos.CE || 0) * 2}${datosPuntos.ganador ? '+V' : ''}`;
-
-                      return (
-                        <tr
-                          key={idx}
-                          className={
-                            datosPuntos.participó
-                              ? 'bg-white/5 hover:bg-white/10'
-                              : 'bg-red-900/10 hover:bg-red-900/20'
-                          }
-                        >
-                          <td className="px-4 py-3 font-semibold">{jugador.nombre}</td>
-                          <td className="px-4 py-3 text-center">
-                            <input
-                              type="checkbox"
-                              checked={datosPuntos.participó || false}
-                              onChange={() =>
-                                handleChangePuntos(playerKey, 'participó')
-                              }
-                              className="w-5 h-5 cursor-pointer accent-blue-500"
-                              disabled={guardando || match.estado === 'finalizada'}
-                            />
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <input
-                              type="number"
-                              min="0"
-                              max="20"
-                              value={datosPuntos.CI || 0}
-                              onChange={(e) =>
-                                handleChangePuntos(playerKey, 'CI', e.target.value)
-                              }
-                              className="w-16 px-2 py-1 bg-white/10 border border-white/20 rounded text-center text-white font-semibold focus:outline-none focus:border-blue-500"
-                              disabled={
-                                !datosPuntos.participó ||
-                                guardando ||
-                                match.estado === 'finalizada'
-                              }
-                            />
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <input
-                              type="number"
-                              min="0"
-                              max="20"
-                              value={datosPuntos.CE || 0}
-                              onChange={(e) =>
-                                handleChangePuntos(playerKey, 'CE', e.target.value)
-                              }
-                              className="w-16 px-2 py-1 bg-white/10 border border-white/20 rounded text-center text-white font-semibold focus:outline-none focus:border-blue-500"
-                              disabled={
-                                !datosPuntos.participó ||
-                                guardando ||
-                                match.estado === 'finalizada'
-                              }
-                            />
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <input
-                              type="checkbox"
-                              checked={datosPuntos.ganador || false}
-                              onChange={() =>
-                                handleChangePuntos(playerKey, 'ganador')
-                              }
-                              className="w-5 h-5 cursor-pointer accent-yellow-400"
-                              disabled={
-                                !datosPuntos.participó ||
-                                guardando ||
-                                match.estado === 'finalizada'
-                              }
-                            />
-                          </td>
-                          <td className="px-4 py-3 text-right font-bold text-blue-300">
-                            {previsión}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Explicación de fórmula */}
-              <div className="bg-blue-500/20 border border-blue-500 rounded-lg p-4 text-blue-200 text-sm space-y-2">
-                <p>
-                  <strong>📐 Fórmula de Puntos:</strong>
-                </p>
-                <ul className="list-disc list-inside space-y-1">
-                  <li>
-                    <strong>CI (Colonias Internas):</strong> 1 punto cada una
-                  </li>
-                  <li>
-                    <strong>CE (Colonias Externas):</strong> 2 puntos cada una
-                  </li>
-                  <li>
-                    <strong>Victoria:</strong> (total participantes ÷ ganadores)
-                  </li>
-                  <li>
-                    <strong>Total:</strong> Colonias + Victoria (si gana)
-                  </li>
-                </ul>
-              </div>
-
-              {/* Botón guardar */}
-              <button
-                type="submit"
-                disabled={guardando}
-                className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 rounded-lg transition-all shadow-lg hover:shadow-xl"
-              >
-                {guardando ? '⏳ Guardando resultados...' : '✓ Guardar Resultados'}
-              </button>
-            </form>
-          </div>
-        )}
-
-        {/* Share Section */}
-        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-8 border border-white/20 text-center">
-          <p className="text-white font-semibold mb-6">
+        {/* Share */}
+        <div className="game-panel" style={{ padding: "24px", textAlign: "center" }}>
+          <p style={{ fontFamily: FB, color: "#8a7a9a", fontSize: "13px", marginBottom: "14px" }}>
             ¿Quieres que se unan más jugadores?
           </p>
           <a
             href={`https://wa.me/?text=${encodeURIComponent(
-              `🎮 Únete a mi partida de CosmicAPP\n\nCódigo: ${matchId}\n\n${typeof window !== "undefined" ? window.location.origin : ""}/cargarPartida/${matchId}`,
+              `🎮 Únete a mi partida de CosmicAPP\n\nCódigo: ${matchId}\n\n${typeof window !== "undefined" ? window.location.origin : ""}/cargarPartida/${matchId}`
             )}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-lg hover:shadow-xl"
-          >
+            target="_blank" rel="noopener noreferrer"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: "8px",
+              padding: "10px 24px", background: "rgba(37,211,102,0.1)",
+              border: "1px solid rgba(37,211,102,0.25)", borderRadius: "7px",
+              color: "#25d366", fontFamily: FB, fontSize: "14px", fontWeight: 600,
+              textDecoration: "none", transition: "all 0.2s",
+            }}>
             📱 Compartir por WhatsApp
           </a>
         </div>
@@ -411,113 +454,167 @@ const JoinMatch = ({ matchId }) => {
   );
 };
 
+/* ── Inline scoring card (in the form) ─────────────────────────── */
+function InlineScoringCard({ keyId, jugador, data, pts, onChange }) {
+  const total = data.participó ? (pts?.total ?? 0) : null;
+  return (
+    <div style={{
+      padding: "16px 18px",
+      background: data.ganador ? "rgba(200,153,42,0.05)" : data.participó ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.01)",
+      border: `1px solid ${data.ganador ? "rgba(200,153,42,0.25)" : data.participó ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.04)"}`,
+      borderRadius: "10px", opacity: data.participó ? 1 : 0.5, transition: "all 0.2s",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: data.participó ? "12px" : 0 }}>
+        {jugador.color && <div style={{ width: "12px", height: "12px", borderRadius: "3px", background: jugador.color, flexShrink: 0 }} />}
+        <p style={{ flex: 1, fontFamily: FB, fontWeight: 600, fontSize: "15px", color: "#f0e8d6" }}>{jugador.nombre}</p>
+
+        <label style={{ display: "flex", alignItems: "center", gap: "5px", cursor: "pointer" }}>
+          <input type="checkbox" checked={data.participó ?? true}
+            onChange={() => onChange(keyId, "participó")} className="w-4 h-4 accent-teal-400" />
+          <span style={{ fontFamily: FM, fontSize: "10px", color: "#4a3a5a", letterSpacing: "0.08em" }}>JUGÓ</span>
+        </label>
+
+        {data.participó && (
+          <span style={{ fontFamily: FM, fontSize: "20px", fontWeight: 700, minWidth: "44px", textAlign: "right",
+            color: data.ganador ? "#c8992a" : "#f0e8d6" }}>
+            {parseFloat(total?.toFixed(1) || "0")}
+          </span>
+        )}
+      </div>
+
+      {data.participó && (
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <SpinnerField label="CI" value={data.CI || 0} onChange={(v) => onChange(keyId, "CI", v)} />
+          <SpinnerField label="CE" value={data.CE || 0} onChange={(v) => onChange(keyId, "CE", v)} />
+          <label style={{
+            display: "flex", alignItems: "center", gap: "6px", marginLeft: "auto",
+            padding: "6px 12px",
+            background: data.ganador ? "rgba(200,153,42,0.15)" : "rgba(255,255,255,0.04)",
+            border: `1px solid ${data.ganador ? "rgba(200,153,42,0.4)" : "rgba(255,255,255,0.1)"}`,
+            borderRadius: "6px", cursor: "pointer", transition: "all 0.2s",
+          }}>
+            <input type="checkbox" checked={data.ganador || false}
+              onChange={() => onChange(keyId, "ganador")} className="w-4 h-4 accent-yellow-400" />
+            <span style={{ fontFamily: FM, fontSize: "11px", letterSpacing: "0.1em",
+              color: data.ganador ? "#c8992a" : "#4a3a5a" }}>
+              {data.ganador ? "🏆 GANÓ" : "GANÓ"}
+            </span>
+          </label>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SpinnerField({ label, value, onChange }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+      <span style={{ fontFamily: FM, fontSize: "9px", letterSpacing: "0.15em", color: "#4a3a5a" }}>{label}</span>
+      <div style={{ display: "flex" }}>
+        <button type="button" onClick={() => onChange(Math.max(0, value - 1))}
+          style={{ width: "28px", height: "28px", background: "rgba(255,255,255,0.05)",
+            border: "1px solid rgba(255,255,255,0.1)", borderRadius: "4px 0 0 4px",
+            color: "#8a7a9a", cursor: "pointer", fontSize: "16px" }}>−</button>
+        <input type="number" min="0" value={value}
+          onChange={e => onChange(e.target.value)}
+          style={{ width: "36px", height: "28px", textAlign: "center",
+            background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+            borderLeft: "none", borderRight: "none",
+            color: "#f0e8d6", fontFamily: FM, fontSize: "14px", outline: "none" }} />
+        <button type="button" onClick={() => onChange(value + 1)}
+          style={{ width: "28px", height: "28px", background: "rgba(255,255,255,0.05)",
+            border: "1px solid rgba(255,255,255,0.1)", borderRadius: "0 4px 4px 0",
+            color: "#8a7a9a", cursor: "pointer", fontSize: "16px" }}>+</button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Player card (view mode) ─────────────────────────────────────── */
 function PlayerCard({ jugador, index, isRevealed, onToggleReveal }) {
-  const [aliensLoading, setAliensLoading] = useState(true);
   const [aliens, setAliens] = useState([]);
+  const [aliensLoading, setAliensLoading] = useState(true);
 
   useEffect(() => {
     const fetchAliens = async () => {
       if (!Array.isArray(jugador.aliens) || jugador.aliens.length === 0) {
-        setAliens([]);
-        setAliensLoading(false);
-        return;
+        setAliens([]); setAliensLoading(false); return;
       }
-
       try {
-        const results = await Promise.all(
-          jugador.aliens.map((id) => getAlienById(id).catch(() => null)),
-        );
+        const results = await Promise.all(jugador.aliens.map(id => getAlienById(id).catch(() => null)));
         setAliens(results.filter(Boolean));
-      } catch (err) {
-        console.error("Error cargando aliens:", err);
-        setAliens([]);
-      } finally {
-        setAliensLoading(false);
-      }
+      } catch { setAliens([]); }
+      finally { setAliensLoading(false); }
     };
-
     fetchAliens();
   }, [jugador.aliens]);
 
-  const textColor =
-    jugador.color === "#FFFFFF" || jugador.color === "#FFFF00"
-      ? "#000000"
-      : "#FFFFFF";
+  const isDark = jugador.color === "#FFFFFF" || jugador.color === "#FFFF00";
 
   return (
-    <div
-      className="rounded-lg p-6 border-2 border-white/20 backdrop-blur-sm transition-all hover:border-white/40 hover:shadow-lg"
-      style={{ backgroundColor: jugador.color + "20" }}
-    >
-      {/* Player Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div
-          className="w-12 h-12 rounded-full border-3 border-white flex items-center justify-center font-bold text-lg"
-          style={{ backgroundColor: jugador.color, color: textColor }}
-        >
-          {index + 1}
-        </div>
+    <div style={{
+      padding: "24px", borderRadius: "10px",
+      background: `${jugador.color || "#444"}18`,
+      border: "1px solid rgba(255,255,255,0.1)",
+      transition: "border-color 0.2s",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "20px" }}>
+        <div style={{
+          width: "44px", height: "44px", borderRadius: "50%",
+          background: jugador.color, border: "2px solid rgba(255,255,255,0.3)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontFamily: FM, fontSize: "16px", fontWeight: 700,
+          color: isDark ? "#000" : "#fff", flexShrink: 0,
+        }}>{index + 1}</div>
         <div>
-          <h3 className="text-2xl font-bold text-white">{jugador.nombre}</h3>
-          <p className="text-purple-200 text-sm">
-            {jugador.aliens?.length || 0} alien
-            {jugador.aliens?.length !== 1 ? "s" : ""}
+          <h3 style={{ fontFamily: FD, fontSize: "20px", letterSpacing: "0.06em", color: "#f0e8d6", lineHeight: 1 }}>
+            {jugador.nombre}
+          </h3>
+          <p style={{ fontFamily: FM, fontSize: "10px", color: "#4a3a5a", marginTop: "4px" }}>
+            {jugador.aliens?.length || 0} alien{jugador.aliens?.length !== 1 ? "s" : ""}
           </p>
         </div>
       </div>
 
-      {/* Aliens Section - ESTRATÉGICO */}
-      <div>
-        <p className="text-white font-semibold mb-3">Aliens asignados:</p>
-
-        {!isRevealed ? (
-          /* Aliens OCULTOS */
-          <div className="bg-gray-900/50 rounded-lg p-6 text-center border-2 border-dashed border-gray-600">
-            <p className="text-gray-400 mb-4 text-2xl">🔒</p>
-            <p className="text-gray-300 font-semibold mb-4">
-              {jugador.aliens?.length || 0} aliens ocultos por estrategia
-            </p>
-            <button
-              onClick={onToggleReveal}
-              className="px-6 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold rounded-lg transition-all"
-            >
-              👁️ Revelar aliens
+      {!isRevealed ? (
+        <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: "8px", padding: "24px",
+          textAlign: "center", border: "1px dashed rgba(255,255,255,0.1)" }}>
+          <div style={{ fontSize: "28px", marginBottom: "10px" }}>🔒</div>
+          <p style={{ fontFamily: FB, color: "#4a3a5a", fontSize: "13px", marginBottom: "14px" }}>
+            {jugador.aliens?.length || 0} aliens ocultos
+          </p>
+          <button onClick={onToggleReveal}
+            style={{ padding: "7px 20px",
+              background: "linear-gradient(135deg, rgba(255,185,0,0.2), rgba(255,120,0,0.25))",
+              border: "1px solid rgba(255,185,0,0.3)", borderRadius: "6px",
+              color: "#ffb900", fontFamily: FM, fontSize: "11px", letterSpacing: "0.1em",
+              cursor: "pointer" }}>
+            👁️ REVELAR
+          </button>
+        </div>
+      ) : (
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "12px" }}>
+            <span style={{ fontFamily: FM, fontSize: "10px", color: "#26c6c3", letterSpacing: "0.1em" }}>✓ REVELADO</span>
+            <button onClick={onToggleReveal} style={{ marginLeft: "auto", padding: "3px 10px",
+              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: "4px", color: "#4a3a5a", cursor: "pointer", fontSize: "11px", fontFamily: FB }}>
+              Ocultar
             </button>
           </div>
-        ) : (
-          /* Aliens REVELADOS */
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-green-400 font-bold">✓ Revelado</span>
-              <button
-                onClick={onToggleReveal}
-                className="ml-auto px-4 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-200 font-semibold rounded text-sm transition-colors"
-              >
-                Ocultar
-              </button>
+          {aliensLoading ? (
+            <p style={{ fontFamily: FB, color: "#4a3a5a", fontSize: "13px" }}>Cargando...</p>
+          ) : aliens.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {aliens.map((alien, i) => (
+                <AlienCard key={alien?.id || i} alien={alien} simple={true} />
+              ))}
             </div>
-
-            {aliensLoading ? (
-              <div className="flex items-center justify-center py-6">
-                <div className="animate-spin text-2xl">🌌</div>
-                <span className="text-gray-400 ml-2">Cargando...</span>
-              </div>
-            ) : aliens.length > 0 ? (
-              <div className="space-y-3">
-                {aliens.map((alien, idx) => (
-                  <AlienCard
-                    key={alien?.id || idx}
-                    alien={alien}
-                    simple={true}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="text-gray-400 py-4 text-center">Sin aliens</p>
-            )}
-          </div>
-        )}
-      </div>
+          ) : (
+            <p style={{ fontFamily: FB, color: "#2a1a3a", fontSize: "13px" }}>Sin aliens</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

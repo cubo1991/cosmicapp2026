@@ -1,75 +1,85 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { useState, useEffect, useMemo } from 'react';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/firebase/config';
-import { playerService } from '@/services/playerService';
 import { scoringService } from '@/services/scoringService';
-import { rankingService } from '@/services/rankingService';
+
+const FD = "var(--font-display, 'Bebas Neue', Impact, sans-serif)";
+const FB = "var(--font-body, 'Exo 2', sans-serif)";
+const FM = "var(--font-mono, 'Space Mono', monospace)";
+
+// ── Live calculation helpers ──────────────────────────────────────
+function calcularTodosLosPuntos(puntos) {
+  const participantes = Object.values(puntos).filter(p => p.participó);
+  const nParticipantes = participantes.length;
+  const nGanadores = participantes.filter(p => p.ganador).length;
+  const ptsVictoria = nGanadores > 0 ? nParticipantes / nGanadores : 0;
+
+  const resultado = {};
+  Object.entries(puntos).forEach(([id, datos]) => {
+    if (!datos.participó) {
+      resultado[id] = { colonias: 0, victoria: 0, total: 0 };
+    } else {
+      const colonias = (datos.CI || 0) + (datos.CE || 0) * 2;
+      const victoria = datos.ganador ? ptsVictoria : 0;
+      resultado[id] = {
+        colonias,
+        victoria: parseFloat(victoria.toFixed(2)),
+        total: parseFloat((colonias + victoria).toFixed(2)),
+      };
+    }
+  });
+  return { resultado, nParticipantes, nGanadores, ptsVictoria };
+}
 
 export default function CargaPuntosForm({ matchId, copaId, posicion, onSuccess }) {
-  const [match, setMatch] = useState(null);
-  const [jugadores, setJugadores] = useState({});
-  const [puntos, setPuntos] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [match,    setMatch]    = useState(null);
+  const [puntos,   setPuntos]   = useState({});
+  const [loading,  setLoading]  = useState(true);
+  const [error,    setError]    = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [step,     setStep]     = useState('form'); // 'form' | 'confirm'
 
-  // Cargar partida y jugadores
+  // ── Load match ─────────────────────────────────────────────────
   useEffect(() => {
     const cargar = async () => {
       try {
-        // Obtener partida
-        const matchRef = doc(db, 'matches', matchId);
-        const matchSnap = await getDoc(matchRef);
-        
-        if (!matchSnap.exists()) {
-          throw new Error('Partida no encontrada');
-        }
-
+        const matchSnap = await getDoc(doc(db, 'matches', matchId));
+        if (!matchSnap.exists()) throw new Error('Partida no encontrada');
         const matchData = matchSnap.data();
         setMatch(matchData);
 
-        const jugadoresInfo = {};
-        const puntosIniciales = {};
-
-        // Manejar jugadores en formato array (partida nueva) u objeto (ya puntuada)
+        // Build puntos initial state — include ALL jugadores (with or without playerId)
         const jugadoresList = Array.isArray(matchData.jugadores)
-          ? matchData.jugadores
-              .filter(j => j.playerId)
-              .map(j => ({ playerId: j.playerId, nombre: j.nombre, datosExistentes: null }))
+          ? matchData.jugadores.map(j => ({
+              key:            j.playerId || j.color || j.nombre,
+              playerId:       j.playerId || null,
+              nombre:         j.nombre,
+              color:          j.color,
+              datosExistentes: null,
+            }))
           : Object.entries(matchData.jugadores).map(([id, datos]) => ({
-              playerId: id,
-              nombre: datos.nombre,
-              datosExistentes: datos
+              key:            id,
+              playerId:       id,
+              nombre:         datos.nombre,
+              color:          datos.color,
+              datosExistentes: datos,
             }));
 
-        for (const { playerId, nombre, datosExistentes } of jugadoresList) {
-          const player = await playerService.obtenerPorId(playerId);
-          if (!player) continue;
-
-          jugadoresInfo[playerId] = player.name;
-
-          if (datosExistentes?.coloniasInternas !== undefined) {
-            puntosIniciales[playerId] = {
-              nombre: player.name,
-              CI: datosExistentes.coloniasInternas || 0,
-              CE: datosExistentes.coloniasExternas || 0,
-              ganador: datosExistentes.esGanador || false,
-              participó: datosExistentes.participó !== false
-            };
-          } else {
-            puntosIniciales[playerId] = {
-              nombre: player.name,
-              CI: 0,
-              CE: 0,
-              ganador: false,
-              participó: true
-            };
-          }
+        const puntosIniciales = {};
+        for (const j of jugadoresList) {
+          const d = j.datosExistentes;
+          puntosIniciales[j.key] = {
+            nombre:   j.nombre,
+            color:    j.color,
+            playerId: j.playerId,
+            CI:       d?.coloniasInternas ?? 0,
+            CE:       d?.coloniasExternas ?? 0,
+            ganador:  d?.esGanador ?? false,
+            participó: d?.participó !== false,
+          };
         }
-
-        setJugadores(jugadoresInfo);
         setPuntos(puntosIniciales);
         setLoading(false);
       } catch (err) {
@@ -77,255 +87,358 @@ export default function CargaPuntosForm({ matchId, copaId, posicion, onSuccess }
         setLoading(false);
       }
     };
-
     cargar();
   }, [matchId]);
 
-  const handleChangeColonias = (playerId, tipo, valor) => {
-    setPuntos(prev => ({
-      ...prev,
-      [playerId]: {
-        ...prev[playerId],
-        [tipo]: Math.max(0, parseInt(valor) || 0)
-      }
-    }));
-  };
+  // ── Live calc ──────────────────────────────────────────────────
+  const calc = useMemo(() => calcularTodosLosPuntos(puntos), [puntos]);
 
-  const handleToggleParticipacion = (playerId) => {
-    setPuntos(prev => ({
-      ...prev,
-      [playerId]: {
-        ...prev[playerId],
-        participó: !prev[playerId].participó,
-        // Si no participa, resetear sus datos
-        ...(!prev[playerId].participó ? { CI: 0, CE: 0, ganador: false } : {})
-      }
-    }));
-  };
-
-  const handleToggleGanador = (playerId) => {
-    setPuntos(prev => ({
-      ...prev,
-      [playerId]: {
-        ...prev[playerId],
-        ganador: !prev[playerId].ganador
-      }
-    }));
-  };
-
-  const calcularPrevision = (datos) => {
-    if (!datos.participó) {
-      return 'NO PARTICIPA';
+  // ── Handlers ──────────────────────────────────────────────────
+  const setCI = (key, val) => setPuntos(p => ({
+    ...p, [key]: { ...p[key], CI: Math.max(0, parseInt(val) || 0) }
+  }));
+  const setCE = (key, val) => setPuntos(p => ({
+    ...p, [key]: { ...p[key], CE: Math.max(0, parseInt(val) || 0) }
+  }));
+  const toggleParticipa = (key) => setPuntos(p => ({
+    ...p, [key]: {
+      ...p[key],
+      participó: !p[key].participó,
+      ...(p[key].participó ? {} : { CI: 0, CE: 0, ganador: false }),
     }
-    const colonias = datos.CI * 1 + datos.CE * 2;
-    const victoria = datos.ganador ? ' + V' : '';
-    return `${colonias}${victoria}`;
+  }));
+  const toggleGanador = (key) => setPuntos(p => ({
+    ...p, [key]: { ...p[key], ganador: p[key].participó ? !p[key].ganador : false }
+  }));
+
+  // ── Validate & advance to confirm ─────────────────────────────
+  const goToConfirm = (e) => {
+    e.preventDefault();
+    setError('');
+    if (calc.nGanadores === 0) {
+      setError('Debe haber al menos un ganador antes de confirmar');
+      return;
+    }
+    setStep('confirm');
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // ── Final submit ───────────────────────────────────────────────
+  const handleSubmit = async () => {
     setEnviando(true);
     setError('');
-
     try {
-      // Procesar resultados
-      const { resultados, resumen } = scoringService.procesarResultadosPartida(puntos);
-
-      // Validar
-      if (resumen.totalGanadores === 0) {
-        throw new Error('Debe haber al menos un ganador');
-      }
-
-      // Actualizar partida en Firestore
-      const matchRef = doc(db, 'matches', matchId);
-      await updateDoc(matchRef, {
-        jugadores: resultados,
-        resumen: resumen,
-        estado: 'finalizada',
-        'auditoria.cargadaPor': 'admin_user', // TODO: Obtener de auth context
-        'auditoria.fechaCarga': serverTimestamp(),
-        fechaFinalizacion: serverTimestamp()
-      });
-
-      // Actualizar ranking de copa
-      await scoringService.actualizarRankingCopaSeguro(
-        copaId,
-        posicion,
-        matchId,
-        resultados
-      );
-
-      // Actualizar stats individuales de jugadores
-      try {
-        await rankingService.registrarPartidaPorJugador(matchId, resultados, new Date());
-        await Promise.all(
-          Object.entries(resultados)
-            .filter(([_, datos]) => datos.participó)
-            .map(([playerId, datos]) =>
-              Promise.all([
-                rankingService.actualizarLast10Score(playerId),
-                scoringService.actualizarEstadisticasJugador(playerId, datos)
-              ])
-            )
-        );
-      } catch (statsError) {
-        console.warn('⚠️ No se pudieron actualizar stats:', statsError.message);
-      }
-
-      // Éxito
+      // Use the centralized service which handles match update, copa ranking,
+      // auto-close at position 10, and player stats in one atomic flow.
+      await scoringService.finalizarPartidaConCopa(matchId, puntos);
       if (onSuccess) onSuccess();
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Error al guardar los puntos');
+      setStep('form');
     } finally {
       setEnviando(false);
     }
   };
 
+  // ── Loading ────────────────────────────────────────────────────
   if (loading) {
-    return <div className="p-6 text-center text-gray-600">Cargando jugadores...</div>;
+    return (
+      <div style={{ padding: '48px', textAlign: 'center' }}>
+        <div className="animate-spin" style={{ fontSize: '28px', marginBottom: '12px' }}>🌌</div>
+        <p style={{ fontFamily: FB, color: '#8a7a9a' }}>Cargando jugadores...</p>
+      </div>
+    );
   }
 
-  if (!match) {
-    return <div className="p-6 text-center text-red-600">Partida no encontrada</div>;
+  if (!match) return (
+    <div style={{ padding: '24px', color: '#e63946', fontFamily: FB }}>Partida no encontrada</div>
+  );
+
+  const jugadoresKeys = Object.keys(puntos);
+
+  // ── CONFIRM SCREEN ─────────────────────────────────────────────
+  if (step === 'confirm') {
+    return (
+      <div>
+        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+          <p className="cosmic-label" style={{ marginBottom: '8px' }}>CONFIRMACIÓN</p>
+          <h2 style={{ fontFamily: FD, fontSize: 'clamp(28px, 5vw, 40px)', color: '#f0e8d6', letterSpacing: '0.06em', lineHeight: 1 }}>
+            ¿TODO CORRECTO?
+          </h2>
+          <p style={{ fontFamily: FB, color: '#8a7a9a', fontSize: '13px', marginTop: '8px' }}>
+            Partida #{posicion} · {calc.nParticipantes} participantes · {calc.nGanadores} ganador{calc.nGanadores !== 1 ? 'es' : ''}
+          </p>
+          <p style={{ fontFamily: FM, fontSize: '11px', color: '#4a3a5a', marginTop: '4px' }}>
+            Victoria = {calc.nParticipantes}/{calc.nGanadores} = <span style={{ color: '#c8992a' }}>{parseFloat(calc.ptsVictoria.toFixed(2))} pts</span>
+          </p>
+        </div>
+
+        {error && (
+          <div style={{ background: 'rgba(230,57,70,0.1)', border: '1px solid rgba(230,57,70,0.3)',
+            borderRadius: '6px', padding: '10px 14px', marginBottom: '16px',
+            color: '#e63946', fontFamily: FB, fontSize: '13px' }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        {/* Summary cards */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
+          {jugadoresKeys.map(key => {
+            const d = puntos[key];
+            const pts = calc.resultado[key];
+            return (
+              <div key={key} style={{
+                display: 'flex', alignItems: 'center', gap: '14px',
+                padding: '14px 18px',
+                background: d.participó ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.01)',
+                border: `1px solid ${d.ganador ? 'rgba(200,153,42,0.3)' : 'rgba(255,255,255,0.06)'}`,
+                borderRadius: '8px',
+                opacity: d.participó ? 1 : 0.45,
+              }}>
+                {d.color && (
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%',
+                    background: d.color, flexShrink: 0 }} />
+                )}
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontFamily: FB, fontSize: '14px', fontWeight: 600, color: '#f0e8d6', lineHeight: 1 }}>
+                    {d.ganador && <span style={{ color: '#c8992a', marginRight: '6px' }}>🏆</span>}
+                    {d.nombre}
+                  </p>
+                  {d.participó && (
+                    <p style={{ fontFamily: FM, fontSize: '10px', color: '#4a3a5a', marginTop: '3px' }}>
+                      CI×{d.CI} + CE×{d.CE}{d.ganador ? ` + V(${parseFloat(calc.ptsVictoria.toFixed(2))})` : ''}
+                    </p>
+                  )}
+                </div>
+                <p style={{
+                  fontFamily: FM, fontSize: d.participó ? '22px' : '14px',
+                  fontWeight: 700, color: d.ganador ? '#c8992a' : d.participó ? '#f0e8d6' : '#2a1a3a',
+                }}>
+                  {d.participó ? parseFloat(pts?.total?.toFixed(1) || '0') : 'NO'}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            type="button"
+            onClick={() => { setStep('form'); setError(''); }}
+            disabled={enviando}
+            style={{ flex: 1, padding: '13px',
+              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '8px', color: '#8a7a9a', fontFamily: FB, fontSize: '14px',
+              cursor: 'pointer' }}>
+            ← Corregir
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={enviando}
+            style={{ flex: 2, padding: '13px',
+              background: enviando ? 'rgba(38,198,195,0.05)' : 'linear-gradient(135deg, rgba(38,198,195,0.6), rgba(26,180,180,0.7))',
+              border: '1px solid rgba(38,198,195,0.4)', borderRadius: '8px',
+              color: '#f0e8d6', fontFamily: FD, fontSize: '20px', letterSpacing: '0.1em',
+              cursor: enviando ? 'not-allowed' : 'pointer', transition: 'all 0.25s' }}>
+            {enviando ? '⏳ GUARDANDO...' : 'CONFIRMAR ✓'}
+          </button>
+        </div>
+      </div>
+    );
   }
 
+  // ── FORM SCREEN ────────────────────────────────────────────────
   return (
-    <div className="w-full max-w-6xl mx-auto p-6 bg-white rounded-lg shadow-md">
-      <div className="mb-6">
-        <h2 className="text-3xl font-bold text-gray-800">Cargar Puntos</h2>
-        <p className="text-gray-600">
-          {match.nombre} • Posición #{posicion}
+    <div>
+      {/* Header */}
+      <div style={{ marginBottom: '24px' }}>
+        <p className="cosmic-label" style={{ marginBottom: '8px' }}>
+          {posicion ? `PARTIDA #${posicion}` : 'CARGAR RESULTADOS'}
         </p>
+        <h2 style={{ fontFamily: FD, fontSize: 'clamp(28px, 5vw, 40px)', color: '#f0e8d6', letterSpacing: '0.06em', lineHeight: 1 }}>
+          CARGAR PUNTOS
+        </h2>
+        {match?.nombre && (
+          <p style={{ fontFamily: FB, color: '#8a7a9a', fontSize: '13px', marginTop: '6px' }}>
+            {match.nombre}
+          </p>
+        )}
       </div>
 
       {error && (
-        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-          ❌ {error}
+        <div style={{ background: 'rgba(230,57,70,0.1)', border: '1px solid rgba(230,57,70,0.3)',
+          borderRadius: '6px', padding: '10px 14px', marginBottom: '16px',
+          color: '#e63946', fontFamily: FB, fontSize: '13px' }}>
+          ⚠️ {error}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Tabla principal */}
-        <div className="overflow-x-auto border border-gray-300 rounded-lg">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border border-gray-300 px-4 py-3 text-left font-semibold">
-                  Jugador
-                </th>
-                <th className="border border-gray-300 px-4 py-3 text-center font-semibold">
-                  ¿Participó?
-                </th>
-                <th className="border border-gray-300 px-4 py-3 text-center font-semibold">
-                  CI
-                </th>
-                <th className="border border-gray-300 px-4 py-3 text-center font-semibold">
-                  CE
-                </th>
-                <th className="border border-gray-300 px-4 py-3 text-center font-semibold">
-                  ¿Ganador?
-                </th>
-                <th className="border border-gray-300 px-4 py-3 text-right font-semibold">
-                  Previsión
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(puntos).map(([playerId, datos]) => (
-                <tr
-                  key={playerId}
-                  className={
-                    !datos.participó
-                      ? 'bg-gray-50'
-                      : 'hover:bg-blue-50'
-                  }
-                >
-                  <td className="border border-gray-300 px-4 py-3 font-semibold text-gray-800">
-                    {datos.nombre}
-                  </td>
-                  <td className="border border-gray-300 px-4 py-3 text-center">
-                    <input
-                      type="checkbox"
-                      checked={datos.participó}
-                      onChange={() => handleToggleParticipacion(playerId)}
-                      className="w-5 h-5 cursor-pointer"
-                      disabled={enviando}
-                    />
-                  </td>
-                  <td className="border border-gray-300 px-4 py-3 text-center">
-                    <input
-                      type="number"
-                      min="0"
-                      max="20"
-                      value={datos.CI}
-                      onChange={(e) =>
-                        handleChangeColonias(playerId, 'CI', e.target.value)
-                      }
-                      className="w-16 px-2 py-1 border border-gray-300 rounded text-center font-mono"
-                      disabled={!datos.participó || enviando}
-                    />
-                  </td>
-                  <td className="border border-gray-300 px-4 py-3 text-center">
-                    <input
-                      type="number"
-                      min="0"
-                      max="20"
-                      value={datos.CE}
-                      onChange={(e) =>
-                        handleChangeColonias(playerId, 'CE', e.target.value)
-                      }
-                      className="w-16 px-2 py-1 border border-gray-300 rounded text-center font-mono"
-                      disabled={!datos.participó || enviando}
-                    />
-                  </td>
-                  <td className="border border-gray-300 px-4 py-3 text-center">
-                    <input
-                      type="checkbox"
-                      checked={datos.ganador && datos.participó}
-                      onChange={() => handleToggleGanador(playerId)}
-                      className="w-5 h-5 cursor-pointer"
-                      disabled={!datos.participó || enviando}
-                    />
-                  </td>
-                  <td className="border border-gray-300 px-4 py-3 text-right font-semibold text-blue-600">
-                    {calcularPrevision(datos)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Victory preview bar */}
+      {calc.nGanadores > 0 && (
+        <div style={{ padding: '10px 16px', background: 'rgba(200,153,42,0.06)',
+          border: '1px solid rgba(200,153,42,0.2)', borderRadius: '6px', marginBottom: '16px',
+          display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <span style={{ fontFamily: FM, fontSize: '11px', color: '#4a3a5a', letterSpacing: '0.1em' }}>VICTORIA:</span>
+          <span style={{ fontFamily: FM, fontSize: '14px', fontWeight: 700, color: '#c8992a' }}>
+            {calc.nParticipantes} ÷ {calc.nGanadores} = {parseFloat(calc.ptsVictoria.toFixed(2))} pts
+          </span>
+        </div>
+      )}
+
+      <form onSubmit={goToConfirm}>
+        {/* Player cards */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+          {jugadoresKeys.map(key => {
+            const d = puntos[key];
+            const pts = calc.resultado[key];
+            return (
+              <PlayerScoringCard
+                key={key}
+                keyId={key}
+                data={d}
+                ptsCalc={pts}
+                disabled={false}
+                onToggleParticipa={() => toggleParticipa(key)}
+                onToggleGanador={() => toggleGanador(key)}
+                onChangeCI={(v) => setCI(key, v)}
+                onChangeCE={(v) => setCE(key, v)}
+              />
+            );
+          })}
         </div>
 
-        {/* Info de cálculo */}
-        <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg space-y-3">
-          <h3 className="font-bold text-blue-900">📊 Fórmula de Cálculo</h3>
-          <ul className="text-sm text-blue-800 space-y-2">
-            <li>
-              • <strong>Colonias Internas (CI):</strong> 1 punto cada una
-            </li>
-            <li>
-              • <strong>Colonias Externas (CE):</strong> 2 puntos cada una
-            </li>
-            <li>
-              • <strong>Bonificación Victoria:</strong> (participantes ÷ ganadores) si ganaste
-            </li>
-            <li className="text-xs text-blue-700 mt-2">
-              💡 Si un jugador NO participa → no suma puntos y no ocupa lugar
-            </li>
-          </ul>
+        {/* Formula hint */}
+        <div style={{ padding: '12px 16px', background: 'rgba(17,13,30,0.5)',
+          border: '1px solid rgba(200,153,42,0.1)', borderRadius: '6px', marginBottom: '20px' }}>
+          <p style={{ fontFamily: FM, fontSize: '10px', letterSpacing: '0.12em', color: '#4a3a5a' }}>
+            FÓRMULA: CI×1 + CE×2 + Victoria(participantes÷ganadores)
+          </p>
         </div>
 
-        {/* Botón envío */}
-        <div className="flex gap-3">
-          <button
-            type="submit"
-            disabled={enviando}
-            className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-3 rounded-lg transition"
-          >
-            {enviando ? '⏳ Guardando...' : '✓ Guardar Puntos'}
-          </button>
-        </div>
+        <button type="submit"
+          disabled={calc.nGanadores === 0}
+          style={{
+            width: '100%', padding: '14px',
+            background: calc.nGanadores > 0
+              ? 'linear-gradient(135deg, rgba(168,85,247,0.65), rgba(139,92,246,0.8))'
+              : 'rgba(255,255,255,0.03)',
+            border: `1px solid ${calc.nGanadores > 0 ? 'rgba(168,85,247,0.4)' : 'rgba(255,255,255,0.06)'}`,
+            borderRadius: '8px',
+            color: calc.nGanadores > 0 ? '#f0e8d6' : '#2a1a3a',
+            fontFamily: FD, fontSize: '20px', letterSpacing: '0.1em',
+            cursor: calc.nGanadores > 0 ? 'pointer' : 'not-allowed',
+            transition: 'all 0.25s',
+          }}>
+          {calc.nGanadores === 0 ? 'MARCA AL MENOS UN GANADOR' : 'REVISAR Y CONFIRMAR →'}
+        </button>
       </form>
+    </div>
+  );
+}
+
+/* ── Player scoring card ─────────────────────────────────────────── */
+function PlayerScoringCard({ keyId, data, ptsCalc, onToggleParticipa, onToggleGanador, onChangeCI, onChangeCE }) {
+  const total = data.participó ? (ptsCalc?.total ?? 0) : null;
+
+  return (
+    <div style={{
+      padding: '16px 18px',
+      background: data.participó
+        ? data.ganador ? 'rgba(200,153,42,0.05)' : 'rgba(255,255,255,0.03)'
+        : 'rgba(255,255,255,0.01)',
+      border: `1px solid ${data.ganador ? 'rgba(200,153,42,0.25)' : data.participó ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.04)'}`,
+      borderRadius: '10px',
+      opacity: data.participó ? 1 : 0.5,
+      transition: 'all 0.2s',
+    }}>
+      {/* Top row: name + color + participó + total */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: data.participó ? '14px' : 0 }}>
+        {data.color && (
+          <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: data.color, flexShrink: 0 }} />
+        )}
+        <p style={{ flex: 1, fontFamily: FB, fontWeight: 600, fontSize: '15px', color: '#f0e8d6', lineHeight: 1 }}>
+          {data.nombre}
+        </p>
+
+        {/* Participó toggle */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}
+          title="¿Participó en esta partida?">
+          <input type="checkbox" checked={data.participó}
+            onChange={onToggleParticipa} className="w-4 h-4 accent-teal-400" />
+          <span style={{ fontFamily: FM, fontSize: '10px', color: '#4a3a5a', letterSpacing: '0.08em' }}>
+            JUGÓ
+          </span>
+        </label>
+
+        {/* Live total */}
+        {data.participó && (
+          <span style={{
+            fontFamily: FM, fontSize: '20px', fontWeight: 700, minWidth: '44px', textAlign: 'right',
+            color: data.ganador ? '#c8992a' : '#f0e8d6',
+          }}>
+            {parseFloat(total?.toFixed(1) || '0')}
+          </span>
+        )}
+      </div>
+
+      {/* CI / CE / Winner row */}
+      {data.participó && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <SpinnerField label="CI" value={data.CI} onChange={onChangeCI} />
+          <SpinnerField label="CE" value={data.CE} onChange={onChangeCE} />
+
+          {/* Ganador */}
+          <label style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '6px 12px',
+            background: data.ganador ? 'rgba(200,153,42,0.15)' : 'rgba(255,255,255,0.04)',
+            border: `1px solid ${data.ganador ? 'rgba(200,153,42,0.4)' : 'rgba(255,255,255,0.1)'}`,
+            borderRadius: '6px', cursor: 'pointer', transition: 'all 0.2s',
+            marginLeft: 'auto',
+          }}>
+            <input type="checkbox" checked={data.ganador}
+              onChange={onToggleGanador}
+              className="w-4 h-4 accent-yellow-400" />
+            <span style={{ fontFamily: FM, fontSize: '11px', letterSpacing: '0.1em',
+              color: data.ganador ? '#c8992a' : '#4a3a5a' }}>
+              {data.ganador ? '🏆 GANÓ' : 'GANÓ'}
+            </span>
+          </label>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Spinner field ────────────────────────────────────────────────── */
+function SpinnerField({ label, value, onChange }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+      <span style={{ fontFamily: FM, fontSize: '9px', letterSpacing: '0.15em', color: '#4a3a5a' }}>
+        {label}
+      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
+        <button type="button" onClick={() => onChange(Math.max(0, value - 1))}
+          style={{ width: '28px', height: '28px', background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)', borderRadius: '4px 0 0 4px',
+            color: '#8a7a9a', cursor: 'pointer', fontSize: '16px', lineHeight: 1 }}>
+          −
+        </button>
+        <input
+          type="number" min="0" value={value}
+          onChange={e => onChange(e.target.value)}
+          style={{ width: '36px', height: '28px', textAlign: 'center',
+            background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+            borderLeft: 'none', borderRight: 'none',
+            color: '#f0e8d6', fontFamily: FM, fontSize: '14px', outline: 'none' }}
+        />
+        <button type="button" onClick={() => onChange(value + 1)}
+          style={{ width: '28px', height: '28px', background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0 4px 4px 0',
+            color: '#8a7a9a', cursor: 'pointer', fontSize: '16px', lineHeight: 1 }}>
+          +
+        </button>
+      </div>
     </div>
   );
 }
