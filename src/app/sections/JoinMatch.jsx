@@ -176,14 +176,27 @@ const JoinMatch = ({ matchId }) => {
     if (!match) return;
     setCreandoRevancha(true);
     try {
-      const jugadoresBase = Array.isArray(match.jugadores)
-        ? match.jugadores
-        : Object.values(match.jugadores);
+      // Build player list regardless of whether jugadores is the original array
+      // (active match) or the finalized results object (which now preserves color+aliens)
+      let jugadoresBase;
+      if (Array.isArray(match.jugadores)) {
+        jugadoresBase = match.jugadores;
+      } else {
+        // Finalized match: jugadores is { [key]: { nombre, color, playerId, aliens, ... } }
+        jugadoresBase = Object.values(match.jugadores);
+      }
+
+      // Filter to valid players (have a color or a name)
+      const jugadoresValidos = jugadoresBase
+        .filter(j => j.color || j.nombre)
+        .map(j => ({ nombre: j.nombre, color: j.color || null, playerId: j.playerId || null, aliens: [] }));
+
+      if (jugadoresValidos.length < 2) {
+        throw new Error('No hay suficientes jugadores para la revancha');
+      }
 
       // Keep same players/colors, assign new aliens
-      const jugadoresConAliens = await asignarAliensNuevos(
-        jugadoresBase.map(j => ({ nombre: j.nombre, color: j.color, playerId: j.playerId || null, aliens: [] }))
-      );
+      const jugadoresConAliens = await asignarAliensNuevos(jugadoresValidos);
 
       const newMatchId = await createMatch({
         jugadores: jugadoresConAliens,

@@ -69,7 +69,10 @@ export const scoringService = {
       })
       .map(([id, datos]) => ({
         id,
-        nombre: datos.nombre,
+        nombre:   datos.nombre,
+        color:    datos.color    || null,
+        playerId: datos.playerId || null,
+        aliens:   datos.aliens   || [],
         CI: datos.CI || 0,
         CE: datos.CE || 0,
         ganador: datos.ganador || false,
@@ -97,7 +100,10 @@ export const scoringService = {
     participantes.forEach((p) => {
       const puntosTotales = p.puntosColonias + (p.ganador ? puntosVictoria : 0);
       resultados[p.id] = {
-        nombre: p.nombre,
+        nombre:    p.nombre,
+        color:     p.color,    // preserved for revancha
+        playerId:  p.playerId, // preserved for revancha
+        aliens:    p.aliens,   // preserved for revancha
         coloniasInternas: p.CI,
         coloniasExternas: p.CE,
         esGanador: p.ganador,
@@ -114,16 +120,15 @@ export const scoringService = {
     Object.entries(datosFormulario).forEach(([id, datos]) => {
       if (!resultados[id]) {
         resultados[id] = {
-          nombre: datos.nombre,
+          nombre:    datos.nombre,
+          color:     datos.color    || null,
+          playerId:  datos.playerId || null,
+          aliens:    datos.aliens   || [],
           coloniasInternas: 0,
           coloniasExternas: 0,
           esGanador: false,
           participó: false,
-          puntos: {
-            colonias: 0,
-            victoria: 0,
-            total: 0
-          }
+          puntos: { colonias: 0, victoria: 0, total: 0 }
         };
       }
     });

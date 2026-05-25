@@ -116,17 +116,45 @@ function computeAlienStats(matches) {
     .sort((a, b) => b.count - a.count);
 }
 
-/* ── Stat bar ──────────────────────────────────────────────────────── */
-function StatBar({ label, value, color = '#c8992a' }) {
+/* ── Stat bar with hover tooltip ───────────────────────────────────── */
+function StatBar({ label, value, color = '#c8992a', tooltip }) {
+  const [hovered, setHovered] = useState(false);
   return (
-    <div style={{ marginBottom: '10px' }}>
+    <div
+      style={{ marginBottom: '10px', position: 'relative', cursor: 'default' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-        <span style={{ fontFamily: FM, fontSize: '10px', letterSpacing: '0.12em', color: '#8a7a9a' }}>{label}</span>
+        <span style={{
+          fontFamily: FM, fontSize: '10px', letterSpacing: '0.12em',
+          color: hovered ? '#f0e8d6' : '#8a7a9a', transition: 'color 0.15s',
+        }}>
+          {label}
+        </span>
         <span style={{ fontFamily: FM, fontSize: '12px', fontWeight: 700, color }}>{value}</span>
       </div>
       <div style={{ height: '5px', background: 'rgba(255,255,255,0.05)', borderRadius: '3px', overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${value}%`, background: color, borderRadius: '3px', transition: 'width 0.6s ease' }} />
       </div>
+      {/* Tooltip */}
+      {hovered && tooltip && (
+        <div style={{
+          position: 'absolute', bottom: 'calc(100% + 6px)', left: 0,
+          zIndex: 20,
+          background: '#1a1330',
+          border: `1px solid ${color}44`,
+          borderRadius: '6px',
+          padding: '7px 11px',
+          pointerEvents: 'none',
+          whiteSpace: 'nowrap',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+        }}>
+          <p style={{ fontFamily: FM, fontSize: '10px', color: '#8a7a9a', letterSpacing: '0.08em' }}>
+            {tooltip}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -392,18 +420,15 @@ export default function PlayerDetailPage() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 32px' }}>
               <div>
-                <StatBar label="CONQUISTA"    value={perfilEstelar.Conquista}    color="#e63946" />
-                <StatBar label="POTENCIA"     value={perfilEstelar.Potencia}     color="#c8992a" />
-                <StatBar label="LIDERAZGO"    value={perfilEstelar.Liderazgo}    color="#26c6c3" />
+                <StatBar label="CONQUISTA"    value={perfilEstelar.Conquista}    color="#e63946" tooltip="Promedio de colonias externas (CE) por partida" />
+                <StatBar label="POTENCIA"     value={perfilEstelar.Potencia}     color="#c8992a" tooltip="Promedio de puntos totales por partida" />
+                <StatBar label="LIDERAZGO"    value={perfilEstelar.Liderazgo}    color="#26c6c3" tooltip="Porcentaje de victorias en las últimas 10 partidas" />
               </div>
               <div>
-                <StatBar label="CONSISTENCIA" value={perfilEstelar.Consistencia} color="#a855f7" />
-                <StatBar label="DOMINIO"      value={perfilEstelar.Dominio}      color="#4a90d9" />
+                <StatBar label="CONSISTENCIA" value={perfilEstelar.Consistencia} color="#a855f7" tooltip="Regularidad del rendimiento (100 = nunca varía)" />
+                <StatBar label="DOMINIO"      value={perfilEstelar.Dominio}      color="#4a90d9" tooltip="Promedio de colonias internas (CI) por partida" />
               </div>
             </div>
-            <p style={{ fontFamily: FM, fontSize: '9px', color: '#2a1a3a', marginTop: '10px', letterSpacing: '0.06em' }}>
-              Conquista = CE prom · Potencia = pts prom · Liderazgo = win rate · Consistencia = regularidad · Dominio = CI prom
-            </p>
           </div>
         )}
 
