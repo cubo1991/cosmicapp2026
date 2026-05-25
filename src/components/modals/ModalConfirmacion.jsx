@@ -15,6 +15,7 @@ export default function ModalConfirmacion({
   onCancel,
   isDanger = false,
   isLoading = false,
+  errorMsg = null,
 }) {
   if (!isOpen) return null;
 
@@ -22,7 +23,13 @@ export default function ModalConfirmacion({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-lg p-6 max-w-sm w-full mx-4">
         <h2 className="text-xl font-bold text-gray-800 mb-4">{titulo}</h2>
-        <p className="text-gray-600 mb-6">{mensaje}</p>
+        <p className="text-gray-600 mb-4" style={{ whiteSpace: 'pre-line' }}>{mensaje}</p>
+
+        {errorMsg && (
+          <div className="mb-4 px-3 py-2 bg-red-50 border border-red-300 rounded text-red-700 text-sm">
+            ⚠️ {errorMsg}
+          </div>
+        )}
 
         <div className="flex gap-3 justify-end">
           <button

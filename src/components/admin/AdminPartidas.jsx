@@ -154,8 +154,9 @@ export default function AdminPartidas() {
                 <BotónEliminar
                   tipo="partida"
                   id={partida.id}
-                  nombre={partida.nombre || "Partida"}
-                  onSuccess={() => router.refresh()}
+                  nombre={partida.codigo || partida.nombre || `Partida ${partida.id.slice(0, 6)}`}
+                  estadoPartida={partida.estado}
+                  onSuccess={() => setPartidas(prev => prev.filter(p => p.id !== partida.id))}
                   className="w-full"
                 />
               </div>
