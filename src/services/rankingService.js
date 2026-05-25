@@ -5,7 +5,6 @@ import {
   updateDoc,
   serverTimestamp,
   query,
-  where,
   orderBy,
   limit,
   writeBatch
@@ -27,7 +26,7 @@ export const rankingService = {
    * - jugadoresConPuntos: { playerId: { nombre, puntos, esGanador, participó } }
    * - fechaPartida: timestamp o Date
    */
-  async registrarPartidaPorJugador(matchId, jugadoresConPuntos, fechaPartida, alienesPorPlayer = {}) {
+  async registrarPartidaPorJugador(matchId, jugadoresConPuntos, fechaPartida, alienesPorPlayer = {}, extraMeta = {}) {
     try {
       const batch = writeBatch(db);
 
@@ -44,10 +43,17 @@ export const rankingService = {
 
           batch.set(matchSubcolRef, {
             matchId,
-            puntos: datos.puntos?.total || 0,
-            esGanador: datos.esGanador || false,
-            participó: datos.participó !== false,
-            aliens: alienesPorPlayer[playerId] || [],
+            puntos:      datos.puntos?.total || 0,
+            esGanador:   datos.esGanador || false,
+            participó:   datos.participó !== false,
+            aliens:      alienesPorPlayer[playerId] || [],
+            alienJugado: extraMeta.alienJugadoPorPlayer?.[playerId] || null,
+            cantJugadores: extraMeta.cantJugadores || null,
+            coloniasExternas: datos.coloniasExternas || 0,
+            coloniasInternas: datos.coloniasInternas || 0,
+            duracionMinutos: extraMeta.duracionMinutos || null,
+            sessionId: extraMeta.sessionId || null,
+            flags: extraMeta.flags || [],
             createdAt: fechaPartida || serverTimestamp()
           });
         }
@@ -74,20 +80,22 @@ export const rankingService = {
         orderBy('createdAt', 'desc'),
         limit(10)
       );
-      
+
       const querySnapshot = await getDocs(q);
-      
-      const last10Score = querySnapshot.docs.reduce((sum, doc) => {
-        return sum + (doc.data().puntos || 0);
-      }, 0);
-      
+      const docs = querySnapshot.docs;
+
+      const last10Score = docs.reduce((sum, d) => sum + (d.data().puntos || 0), 0);
+      // last3Score: sum of most recent 3 matches (already sorted desc)
+      const last3Score  = docs.slice(0, 3).reduce((sum, d) => sum + (d.data().puntos || 0), 0);
+
       const playerRef = doc(db, 'players', playerId);
       await updateDoc(playerRef, {
         last10Score,
+        last3Score,
         last10ScoreUpdatedAt: serverTimestamp()
       });
-      
-      console.log(`✓ ${playerId}: last10Score = ${last10Score}`);
+
+      console.log(`✓ ${playerId}: last10Score = ${last10Score}, last3Score = ${last3Score}`);
       return last10Score;
     } catch (error) {
       console.error('Error actualizando last10Score:', error);
@@ -110,19 +118,34 @@ export const rankingService = {
         .filter(j => (j.last10Score || 0) > 0)
         .sort((a, b) => (b.last10Score || 0) - (a.last10Score || 0))
         .slice(0, 100)
-        .map((j, i) => ({
-          posicion: i + 1,
-          id: j.id,
-          nombre: j.name || 'Sin nombre',
-          avatar: j.photoURL || null,
-          puntos: parseFloat((j.last10Score || 0).toFixed(1)),
-          partidas: j.estadisticas?.jugadas || j.stats?.partidas || 0,
-          victorias: j.estadisticas?.copas || 0,
-          podioCopas: j.estadisticas?.podioCopas || 0,
-          puntosPromedio: j.stats?.puntosPromedio
-            ? parseFloat(j.stats.puntosPromedio.toFixed(1))
-            : 0
-        }));
+        .map((j, i) => {
+          const last10 = j.last10Score || 0;
+          const last3  = j.last3Score  || 0;
+          // Forma: compare last3 avg to last10 avg
+          // last3 has 3 matches, last10 has up to 10
+          const avg10 = last10 / 10;
+          const avg3  = last3  / 3;
+          let forma = 'neutral';
+          if (avg10 > 0) {
+            if (avg3 > avg10 * 1.1)       forma = 'up';
+            else if (avg3 < avg10 * 0.9)  forma = 'down';
+          }
+          return {
+            posicion: i + 1,
+            id: j.id,
+            nombre: j.name || 'Sin nombre',
+            avatar: j.photoURL || null,
+            puntos: parseFloat(last10.toFixed(1)),
+            last3Score: parseFloat(last3.toFixed(1)),
+            forma,
+            partidas: j.estadisticas?.jugadas || j.stats?.partidas || 0,
+            victorias: j.estadisticas?.copas || 0,
+            podioCopas: j.estadisticas?.podioCopas || 0,
+            puntosPromedio: j.stats?.puntosPromedio
+              ? parseFloat(j.stats.puntosPromedio.toFixed(1))
+              : 0
+          };
+        });
     } catch (error) {
       console.error('Error obteniendo ranking global:', error);
       throw error;

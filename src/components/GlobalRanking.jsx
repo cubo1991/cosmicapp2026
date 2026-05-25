@@ -186,7 +186,7 @@ function RankingCardTop3({ jugador, posicion }) {
             fontSize: "28px",
             fontWeight: 700,
             color: cfg.textColor,
-            marginBottom: "10px",
+            marginBottom: "4px",
             textShadow: `0 0 12px ${cfg.glow}`,
           }}
         >
@@ -195,6 +195,11 @@ function RankingCardTop3({ jugador, posicion }) {
             pts
           </span>
         </p>
+
+        {/* Forma indicator */}
+        <div style={{ marginBottom: "8px" }}>
+          <FormaChip forma={jugador.forma} />
+        </div>
 
         <div style={{ fontFamily: FB, fontSize: "11px", color: "#8a7a9a", lineHeight: 1.8 }}>
           <p>Partidas: {jugador.partidas}</p>
@@ -283,13 +288,37 @@ function RankingRowCompact({ jugador }) {
         </div>
 
         <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <p style={{ fontFamily: FM, fontSize: "20px", fontWeight: 700, color: "#c8992a" }}>
-            {jugador.puntos.toFixed(1)}
-          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", justifyContent: "flex-end", marginBottom: "2px" }}>
+            <FormaChip forma={jugador.forma} compact />
+            <p style={{ fontFamily: FM, fontSize: "20px", fontWeight: 700, color: "#c8992a" }}>
+              {jugador.puntos.toFixed(1)}
+            </p>
+          </div>
           <p style={{ fontFamily: FB, fontSize: "10px", color: "#4a3a5a" }}>últ. 10 partidas</p>
         </div>
       </div>
     </Link>
+  );
+}
+
+/* ── Forma chip ──────────────────────────────────────────────────── */
+function FormaChip({ forma, compact = false }) {
+  const cfg = {
+    up:      { icon: "▲", color: "#26c6c3", label: compact ? "" : "en forma" },
+    down:    { icon: "▼", color: "#e63946", label: compact ? "" : "bajando" },
+    neutral: { icon: "→", color: "#4a3a5a", label: "" },
+  }[forma] || { icon: "→", color: "#4a3a5a", label: "" };
+
+  if (forma === "neutral" && compact) return null;
+
+  return (
+    <span style={{
+      fontFamily: FM, fontSize: compact ? "10px" : "11px",
+      color: cfg.color, letterSpacing: "0.06em",
+      display: "inline-flex", alignItems: "center", gap: "2px",
+    }}>
+      {cfg.icon}{cfg.label ? ` ${cfg.label}` : ""}
+    </span>
   );
 }
 

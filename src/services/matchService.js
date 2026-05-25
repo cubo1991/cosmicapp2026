@@ -1,9 +1,49 @@
 'use client';
 
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, getDocs, query, orderBy, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { useStore } from '@/store/useStore';
 import { activeCopaService } from './activeCopaService';
+
+/**
+ * Detect or reuse an existing session.
+ * A session groups consecutive matches (within 4h) with ≥50% of the same players.
+ * Returns a sessionId string.
+ */
+async function detectOrCreateSession(playerIds, existingSessionId = null) {
+  // If caller passes a sessionId (revancha), reuse it directly
+  if (existingSessionId) return existingSessionId;
+  // If no playerIds, skip
+  if (!playerIds || playerIds.length === 0) return `ses_${Date.now()}`;
+
+  try {
+    const cutoff = new Date(Date.now() - 4 * 60 * 60 * 1000); // 4 hours ago
+    // Simple query — just get recent matches and filter client-side
+    // orderBy alone on fechaCreacion needs no composite index
+    const q = query(
+      collection(db, 'matches'),
+      orderBy('fechaCreacion', 'desc'),
+      limit(15)
+    );
+    const snap = await getDocs(q);
+    const pidSet = new Set(playerIds);
+    for (const d of snap.docs) {
+      const m = d.data();
+      if (!m.sessionId || !m.fechaCreacion) continue;
+      const mDate = m.fechaCreacion.toDate ? m.fechaCreacion.toDate() : new Date(m.fechaCreacion);
+      if (mDate < cutoff) continue;
+      const mPlayers = Array.isArray(m.jugadores)
+        ? m.jugadores.map(j => j.playerId).filter(Boolean)
+        : Object.keys(m.jugadores || {});
+      const overlap = mPlayers.filter(p => pidSet.has(p)).length;
+      const threshold = Math.ceil(Math.min(playerIds.length, mPlayers.length) * 0.5);
+      if (overlap >= threshold) return m.sessionId;
+    }
+  } catch {
+    // query failed — just create fresh session
+  }
+  return `ses_${Date.now()}`;
+}
 
 // 6-char uppercase code — avoids 0/O and 1/I confusion
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -28,6 +68,12 @@ export const createMatch = async (matchData) => {
 
     const codigoCorto = generateCodigoCorto();
 
+    // Detect or reuse session
+    const playerIds = Array.isArray(matchData.jugadores)
+      ? matchData.jugadores.map(j => j.playerId).filter(Boolean)
+      : Object.keys(matchData.jugadores || {});
+    const sessionId = await detectOrCreateSession(playerIds, matchData.sessionId || null);
+
     // Crear datos para Firestore
     const datosPartida = {
       nombre: matchData.nombre || 'Partida sin nombre',
@@ -36,6 +82,7 @@ export const createMatch = async (matchData) => {
       ligaId: matchData.ligaId || null,
       estado: 'activa',
       asociarACopa: matchData.asociarACopa !== false, // Default true
+      sessionId,
       fechaCreacion: serverTimestamp(),
       fechaFinalizacion: null,
       jugadores: matchData.jugadores, // Puede ser array o object

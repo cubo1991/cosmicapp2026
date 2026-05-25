@@ -130,7 +130,7 @@ function RankingTable({ ranking }) {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(200,153,42,0.2)', background: 'rgba(200,153,42,0.03)' }}>
-                {['#', 'Jugador', 'Puntos*', 'Partidas', 'Copas', 'Promedio', ''].map((h, i) => (
+                {['#', 'Jugador', 'Puntos*', 'Forma', 'Partidas', 'Copas', 'Promedio', ''].map((h, i) => (
                   <th key={i} style={{
                     fontFamily: FM, fontSize: '10px', letterSpacing: '0.2em', color: '#4a3a5a',
                     padding: '14px 16px',
@@ -210,6 +210,10 @@ function RankingRow({ jugador, index }) {
       </td>
 
       <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+        <FormaCell forma={jugador.forma} />
+      </td>
+
+      <td style={{ padding: '14px 16px', textAlign: 'center' }}>
         <span style={{ fontFamily: FB, fontSize: '14px', color: '#f0e8d6', fontWeight: 600 }}>{jugador.partidas}</span>
       </td>
 
@@ -238,6 +242,20 @@ function RankingRow({ jugador, index }) {
         </Link>
       </td>
     </tr>
+  );
+}
+
+/* ── Forma cell ─────────────────────────────────────────────────── */
+function FormaCell({ forma }) {
+  const cfg = {
+    up:      { icon: '▲', color: '#26c6c3', label: 'En forma' },
+    down:    { icon: '▼', color: '#e63946', label: 'Bajando'  },
+    neutral: { icon: '→', color: '#4a3a5a', label: '—'        },
+  }[forma] || { icon: '→', color: '#4a3a5a', label: '—' };
+  return (
+    <span title={cfg.label} style={{ fontFamily: FM, fontSize: '13px', color: cfg.color, fontWeight: 700 }}>
+      {cfg.icon}
+    </span>
   );
 }
 
@@ -288,9 +306,12 @@ function RankingCards({ ranking }) {
 
             {/* Score */}
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
-              <p style={{ fontFamily: FM, fontSize: '22px', fontWeight: 700, color: '#c8992a', lineHeight: 1 }}>
-                {jugador.puntos.toFixed(1)}
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', justifyContent: 'flex-end' }}>
+                <FormaCell forma={jugador.forma} />
+                <p style={{ fontFamily: FM, fontSize: '22px', fontWeight: 700, color: '#c8992a', lineHeight: 1 }}>
+                  {jugador.puntos.toFixed(1)}
+                </p>
+              </div>
               <p style={{ fontFamily: FM, fontSize: '9px', color: '#4a3a5a', marginTop: '2px' }}>pts</p>
             </div>
           </div>

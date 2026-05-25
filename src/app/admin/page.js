@@ -10,6 +10,7 @@ import AdminCargarPartidas from '@/components/admin/AdminCargarPartidas';
 import AdminGenerarPartidas from '@/components/admin/AdminGenerarPartidas';
 import AdminEstadisticasLCE from '@/components/admin/AdminEstadisticasLCE';
 import AdminSeedCopaHistorica from '@/components/admin/AdminSeedCopaHistorica';
+import AdminCEIndex from '@/components/admin/AdminCEIndex';
 import OrganizerPanel from '@/components/admin/OrganizerPanel';
 
 const FD = "var(--font-display, 'Bebas Neue', Impact, sans-serif)";
@@ -30,6 +31,7 @@ export default function AdminPage() {
     { id: 'generarPartidas', nombre: '🎲 Generar Prueba', icono: '🎲' },
     { id: 'estadisticasLCE', nombre: '📋 Liga LCE', icono: '📋' },
     { id: 'seedCopaHistorica', nombre: '🗂️ Copa Histórica', icono: '🗂️' },
+    { id: 'ceIndex',          nombre: '📈 CE_INDEX',       icono: '📈' },
   ];
 
   return (
@@ -107,6 +109,7 @@ export default function AdminPage() {
           {pestanaActiva === 'generarPartidas'  && <LegacyWrapper><AdminGenerarPartidas /></LegacyWrapper>}
           {pestanaActiva === 'estadisticasLCE'  && <LegacyWrapper><AdminEstadisticasLCE /></LegacyWrapper>}
           {pestanaActiva === 'seedCopaHistorica'&& <LegacyWrapper><AdminSeedCopaHistorica /></LegacyWrapper>}
+          {pestanaActiva === 'ceIndex'          && <LegacyWrapper><AdminCEIndex /></LegacyWrapper>}
         </div>
       </div>
     </div>

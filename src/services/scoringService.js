@@ -455,6 +455,7 @@ export const scoringService = {
         jugadores: resultados,
         resumen: resumen,
         estado: 'finalizada',
+        fechaFinalizacion: serverTimestamp(),
         auditoria: {
           cargadaPor: ahora,
           fechaCarga: serverTimestamp(),
@@ -503,20 +504,47 @@ export const scoringService = {
             if (resultado) resultadosPorPlayerId[datos.playerId] = resultado;
           });
 
-          // Build alien map: playerId → [alienId, ...]
-          // Aliens are stored in the match's jugadores array
+          // Build alien maps from original match.jugadores (array before finalization)
           const alienesPorPlayer = {};
           const matchJugadores = match.jugadores || [];
           if (Array.isArray(matchJugadores)) {
             matchJugadores.forEach(j => {
-              if (j.playerId && j.aliens?.length) {
-                alienesPorPlayer[j.playerId] = j.aliens;
-              }
+              if (j.playerId && j.aliens?.length) alienesPorPlayer[j.playerId] = j.aliens;
             });
           }
+          // alienesConfirmados is a top-level map: { [playerId]: alienId }
+          // Set by players tapping "ESTE ES MI ALIEN" during match view
+          const alienJugadoPorPlayer = match.alienesConfirmados || {};
+
+          // Compute extraMeta for lastMatches subcollection
+          const participantes = Object.values(resultadosPorPlayerId).filter(r => r.participó !== false);
+          const cantJugadores = participantes.length;
+          const ganadores = participantes.filter(r => r.esGanador);
+
+          // Match flags: notable events
+          const flags = [];
+          if (ganadores.length > 1) flags.push('shared_victory');
+          if (ganadores.some(r => (r.coloniasExternas || 0) === 0)) flags.push('zero_ce_winner');
+
+          // Duration from match creation to now
+          let duracionMinutos = null;
+          if (match.fechaCreacion) {
+            const fc = match.fechaCreacion.toDate
+              ? match.fechaCreacion.toDate()
+              : new Date(match.fechaCreacion);
+            duracionMinutos = Math.round((Date.now() - fc.getTime()) / 60000);
+          }
+
+          const extraMeta = {
+            cantJugadores,
+            duracionMinutos,
+            alienJugadoPorPlayer,
+            sessionId: match.sessionId || null,
+            flags,
+          };
 
           await rankingService.registrarPartidaPorJugador(
-            matchId, resultadosPorPlayerId, new Date(), alienesPorPlayer
+            matchId, resultadosPorPlayerId, new Date(), alienesPorPlayer, extraMeta
           );
 
           // Batch last10Score updates + stats sequentially (reads needed for avg calc)

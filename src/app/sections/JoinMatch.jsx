@@ -1,11 +1,15 @@
 "use client";
-import { getAlienById, getMatchById } from "@/firebase/db";
-import { useEffect, useState, useMemo } from "react";
+import { getAlienById, getAliens, getMatchById } from "@/firebase/db";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { AlienCard } from "../components/alienCard";
 import { LoadingOverlay } from "../components/LoadingOverlay";
 import { ErrorState } from "../components/ErrorState";
 import { activeCopaService } from "@/services/activeCopaService";
 import { scoringService } from "@/services/scoringService";
+import { createMatch } from "@/services/matchService";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "@/firebase/config";
+import { useRouter } from "next/navigation";
 
 const FD = "var(--font-display, 'Bebas Neue', Impact, sans-serif)";
 const FB = "var(--font-body, 'Exo 2', sans-serif)";
@@ -26,16 +30,46 @@ function calcularPreview(puntos) {
   return { resultado, nP, nG, ptsV };
 }
 
+// ── Format elapsed time ──────────────────────────────────────────
+function formatDuration(minutes) {
+  if (!minutes && minutes !== 0) return null;
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}min` : `${h}h`;
+}
+
+// ── Random alien assignment (2 per player, no repeats) ──────────
+async function asignarAliensNuevos(jugadores) {
+  const allAliens = await getAliens().catch(() => []);
+  if (allAliens.length === 0) throw new Error("No hay aliens disponibles");
+  const pool = [...allAliens];
+  return jugadores.map(j => {
+    const picked = [];
+    for (let i = 0; i < 2 && pool.length > 0; i++) {
+      const idx = Math.floor(Math.random() * pool.length);
+      picked.push(pool.splice(idx, 1)[0].id);
+    }
+    return { ...j, aliens: picked };
+  });
+}
+
 const JoinMatch = ({ matchId }) => {
-  const [match,           setMatch]           = useState(null);
-  const [loading,         setLoading]         = useState(true);
-  const [error,           setError]           = useState(null);
-  const [revealedPlayers, setRevealedPlayers] = useState({});
-  const [puntos,          setPuntos]          = useState({});
-  const [guardando,       setGuardando]       = useState(false);
-  const [step,            setStep]            = useState("view"); // 'view' | 'form' | 'confirm' | 'success' | 'copa-ceremony'
-  const [mensajeExito,    setMensajeExito]    = useState(null);
-  const [copaFinalizada,  setCopaFinalizada]  = useState(null); // { nombre, podio }
+  const router = useRouter();
+  const [match,              setMatch]              = useState(null);
+  const [loading,            setLoading]            = useState(true);
+  const [error,              setError]              = useState(null);
+  const [revealedPlayers,    setRevealedPlayers]    = useState({});
+  const [puntos,             setPuntos]             = useState({});
+  const [guardando,          setGuardando]          = useState(false);
+  const [step,               setStep]               = useState("view"); // 'view'|'form'|'confirm'|'success'|'copa-ceremony'
+  const [mensajeExito,       setMensajeExito]       = useState(null);
+  const [copaFinalizada,     setCopaFinalizada]     = useState(null);
+  const [alienesConfirmados, setAlienesConfirmados] = useState({}); // { [playerId]: alienId }
+  const [confirmandoAlien,   setConfirmandoAlien]   = useState(null); // playerId being saved
+  const [creandoRevancha,    setCreandoRevancha]    = useState(false);
+  const [elapsedMin,         setElapsedMin]         = useState(null);
+  const timerRef = useRef(null);
 
   // ── Load match ──────────────────────────────────────────────
   useEffect(() => {
@@ -48,6 +82,7 @@ const JoinMatch = ({ matchId }) => {
           setLoading(false); return;
         }
         setMatch(partida);
+        setAlienesConfirmados(partida.alienesConfirmados || {});
 
         const puntosPorJugador = {};
         if (Array.isArray(partida.jugadores)) {
@@ -67,6 +102,30 @@ const JoinMatch = ({ matchId }) => {
     };
     if (matchId) fetchMatch();
   }, [matchId]);
+
+  // ── Match timer ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!match) return;
+    const calcElapsed = () => {
+      if (!match.fechaCreacion) return;
+      const start = match.fechaCreacion.toDate
+        ? match.fechaCreacion.toDate()
+        : new Date(match.fechaCreacion);
+      if (match.estado === 'finalizada' && match.fechaFinalizacion) {
+        const end = match.fechaFinalizacion.toDate
+          ? match.fechaFinalizacion.toDate()
+          : new Date(match.fechaFinalizacion);
+        setElapsedMin(Math.round((end - start) / 60000));
+        return;
+      }
+      setElapsedMin(Math.round((Date.now() - start.getTime()) / 60000));
+    };
+    calcElapsed();
+    if (match.estado !== 'finalizada') {
+      timerRef.current = setInterval(calcElapsed, 30000);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [match]);
 
   const preview = useMemo(() => calcularPreview(puntos), [puntos]);
 
@@ -91,12 +150,55 @@ const JoinMatch = ({ matchId }) => {
 
   const goToConfirm = (e) => {
     e.preventDefault();
-    if (preview.nG === 0) {
-      alert("Debe haber al menos un ganador");
-      return;
-    }
+    if (preview.nG === 0) { alert("Debe haber al menos un ganador"); return; }
     setStep("confirm");
   };
+
+  // ── "Este es mi alien" handler ──────────────────────────────
+  const handleConfirmAlien = useCallback(async (playerId, alienId) => {
+    if (!playerId || !alienId || !matchId) return;
+    setConfirmandoAlien(playerId);
+    try {
+      const updated = { ...alienesConfirmados, [playerId]: alienId };
+      await updateDoc(doc(db, 'matches', matchId), {
+        [`alienesConfirmados.${playerId}`]: alienId,
+      });
+      setAlienesConfirmados(updated);
+    } catch (err) {
+      console.warn('No se pudo guardar alien confirmado:', err.message);
+    } finally {
+      setConfirmandoAlien(null);
+    }
+  }, [alienesConfirmados, matchId]);
+
+  // ── Revancha ─────────────────────────────────────────────────
+  const handleRevancha = useCallback(async () => {
+    if (!match) return;
+    setCreandoRevancha(true);
+    try {
+      const jugadoresBase = Array.isArray(match.jugadores)
+        ? match.jugadores
+        : Object.values(match.jugadores);
+
+      // Keep same players/colors, assign new aliens
+      const jugadoresConAliens = await asignarAliensNuevos(
+        jugadoresBase.map(j => ({ nombre: j.nombre, color: j.color, playerId: j.playerId || null, aliens: [] }))
+      );
+
+      const newMatchId = await createMatch({
+        jugadores: jugadoresConAliens,
+        asociarACopa: match.asociarACopa !== false,
+        sessionId: match.sessionId || null, // inherit session
+      });
+
+      router.push(`/cargarPartida/${newMatchId}`);
+    } catch (err) {
+      console.error('Error creando revancha:', err);
+      alert('No se pudo crear la revancha. Intenta de nuevo.');
+    } finally {
+      setCreandoRevancha(false);
+    }
+  }, [match, router]);
 
   const handleGuardar = async () => {
     setGuardando(true);
@@ -106,7 +208,7 @@ const JoinMatch = ({ matchId }) => {
       if (participantes === 0) throw new Error("Debe haber al menos un participante");
       if (ganadores === 0)     throw new Error("Debe haber al menos un ganador");
 
-      // Assign copa if needed (only for copa matches)
+      // Assign copa if needed
       if (match.asociarACopa !== false) {
         await activeCopaService.obtenerOCrearCopaActiva();
         if (!match.copId) {
@@ -119,11 +221,10 @@ const JoinMatch = ({ matchId }) => {
       // Check if copa was closed (posicion 10)
       const matchFresh = await getMatchById(matchId);
       if (matchFresh?.posicion === 10 && matchFresh?.copId) {
-        // Try to get closed copa data
         try {
           const { doc: firestoreDoc, getDoc } = await import('firebase/firestore');
-          const { db } = await import('@/firebase/config');
-          const copaSnap = await getDoc(firestoreDoc(db, 'copas', matchFresh.copId));
+          const { db: firestoreDb } = await import('@/firebase/config');
+          const copaSnap = await getDoc(firestoreDoc(firestoreDb, 'copas', matchFresh.copId));
           if (copaSnap.exists() && copaSnap.data().estado === 'finalizada') {
             const copaData = copaSnap.data();
             const podio = Object.entries(copaData.ranking || {})
@@ -169,12 +270,10 @@ const JoinMatch = ({ matchId }) => {
           <p style={{ fontFamily: FB, color: "#8a7a9a", fontSize: "14px", marginBottom: "36px" }}>
             La copa ha concluido. ¡Felicitaciones a los ganadores!
           </p>
-
           <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "32px" }}>
             {copaFinalizada.podio.map((p) => (
               <div key={p.pos} style={{
-                display: "flex", alignItems: "center", gap: "16px",
-                padding: "16px 20px",
+                display: "flex", alignItems: "center", gap: "16px", padding: "16px 20px",
                 background: `rgba(${p.pos === 1 ? '232,197,71' : p.pos === 2 ? '160,174,192' : '205,127,50'},0.06)`,
                 border: `1px solid rgba(${p.pos === 1 ? '232,197,71' : p.pos === 2 ? '160,174,192' : '205,127,50'},0.25)`,
                 borderRadius: "10px",
@@ -189,15 +288,13 @@ const JoinMatch = ({ matchId }) => {
               </div>
             ))}
           </div>
-
           <button
             onClick={() => setStep("view")}
             style={{
               width: "100%", padding: "14px",
               background: "linear-gradient(135deg, rgba(200,153,42,0.5), rgba(168,125,0,0.6))",
               border: "1px solid rgba(200,153,42,0.4)", borderRadius: "8px",
-              color: "#f0e8d6", fontFamily: FD, fontSize: "20px", letterSpacing: "0.1em",
-              cursor: "pointer",
+              color: "#f0e8d6", fontFamily: FD, fontSize: "20px", letterSpacing: "0.1em", cursor: "pointer",
             }}>
             VER PARTIDA ✓
           </button>
@@ -226,8 +323,7 @@ const JoinMatch = ({ matchId }) => {
               const pts = preview.resultado[key];
               return (
                 <div key={key} style={{
-                  display: "flex", alignItems: "center", gap: "12px",
-                  padding: "14px 18px",
+                  display: "flex", alignItems: "center", gap: "12px", padding: "14px 18px",
                   background: d.participó ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.01)",
                   border: `1px solid ${d.ganador ? "rgba(200,153,42,0.3)" : "rgba(255,255,255,0.06)"}`,
                   borderRadius: "8px", opacity: d.participó ? 1 : 0.45,
@@ -348,6 +444,9 @@ const JoinMatch = ({ matchId }) => {
   }
 
   // ── VIEW (main match view) ───────────────────────────────
+  const finalizada = match.estado === "finalizada";
+  const timerLabel = formatDuration(elapsedMin);
+
   return (
     <section style={{ minHeight: "100vh", padding: "48px 16px", position: "relative", zIndex: 1 }}>
       <div className="container mx-auto" style={{ maxWidth: "800px" }}>
@@ -358,15 +457,30 @@ const JoinMatch = ({ matchId }) => {
           <h2 style={{ fontFamily: FD, fontSize: "clamp(36px, 8vw, 56px)", color: "#f0e8d6", letterSpacing: "0.06em", lineHeight: 1, marginBottom: "10px" }}>
             🎮 CÓSMICA
           </h2>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px",
-            padding: "6px 18px", background: "rgba(168,85,247,0.08)",
-            border: "1px solid rgba(168,85,247,0.25)", borderRadius: "20px" }}>
-            <span style={{ fontFamily: FM, fontSize: "13px", color: "#a855f7", letterSpacing: "0.15em" }}>
-              {matchId}
-            </span>
+
+          {/* Code + timer row */}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: "10px" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "8px",
+              padding: "6px 18px", background: "rgba(168,85,247,0.08)",
+              border: "1px solid rgba(168,85,247,0.25)", borderRadius: "20px" }}>
+              <span style={{ fontFamily: FM, fontSize: "13px", color: "#a855f7", letterSpacing: "0.15em" }}>
+                {matchId}
+              </span>
+            </div>
+
+            {timerLabel && (
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "5px",
+                padding: "6px 14px", background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.08)", borderRadius: "20px" }}>
+                <span style={{ fontSize: "11px" }}>⏱</span>
+                <span style={{ fontFamily: FM, fontSize: "11px", color: finalizada ? "#26c6c3" : "#8a7a9a", letterSpacing: "0.1em" }}>
+                  {timerLabel}
+                </span>
+              </div>
+            )}
           </div>
 
-          {match.estado === "finalizada" && (
+          {finalizada && (
             <div style={{ marginTop: "14px", display: "inline-flex", alignItems: "center", gap: "6px",
               padding: "5px 14px", background: "rgba(38,198,195,0.08)",
               border: "1px solid rgba(38,198,195,0.25)", borderRadius: "20px" }}>
@@ -398,13 +512,16 @@ const JoinMatch = ({ matchId }) => {
                 index={idx}
                 isRevealed={revealedPlayers[key] || false}
                 onToggleReveal={() => toggleReveal(key)}
+                alienConfirmado={alienesConfirmados[jugador.playerId] || null}
+                onConfirmAlien={jugador.playerId ? handleConfirmAlien : null}
+                isConfirming={confirmandoAlien === jugador.playerId}
               />
             );
           })}
         </div>
 
-        {/* Load points button — available for ALL matches that are not finalized */}
-        {match.estado !== "finalizada" && (
+        {/* Action buttons */}
+        {!finalizada && (
           <button
             onClick={() => setStep("form")}
             style={{
@@ -417,6 +534,26 @@ const JoinMatch = ({ matchId }) => {
             onMouseEnter={e => { e.currentTarget.style.filter = "brightness(1.15)"; }}
             onMouseLeave={e => { e.currentTarget.style.filter = ""; }}>
             📊 CARGAR PUNTOS
+          </button>
+        )}
+
+        {/* Revancha button (only shown when match is finalized) */}
+        {finalizada && (
+          <button
+            onClick={handleRevancha}
+            disabled={creandoRevancha}
+            style={{
+              display: "block", width: "100%", padding: "15px", marginBottom: "14px",
+              background: creandoRevancha
+                ? "rgba(200,153,42,0.05)"
+                : "linear-gradient(135deg, rgba(200,153,42,0.45), rgba(168,125,0,0.55))",
+              border: "1px solid rgba(200,153,42,0.35)", borderRadius: "8px",
+              color: "#f0e8d6", fontFamily: FD, fontSize: "20px", letterSpacing: "0.1em",
+              cursor: creandoRevancha ? "not-allowed" : "pointer", transition: "all 0.25s",
+            }}
+            onMouseEnter={e => { if (!creandoRevancha) e.currentTarget.style.filter = "brightness(1.15)"; }}
+            onMouseLeave={e => { e.currentTarget.style.filter = ""; }}>
+            {creandoRevancha ? "⏳ CREANDO REVANCHA..." : "🔄 REVANCHA"}
           </button>
         )}
 
@@ -531,7 +668,7 @@ function SpinnerField({ label, value, onChange }) {
 }
 
 /* ── Player card (view mode) ─────────────────────────────────────── */
-function PlayerCard({ jugador, index, isRevealed, onToggleReveal }) {
+function PlayerCard({ jugador, index, isRevealed, onToggleReveal, alienConfirmado, onConfirmAlien, isConfirming }) {
   const [aliens, setAliens] = useState([]);
   const [aliensLoading, setAliensLoading] = useState(true);
 
@@ -572,6 +709,7 @@ function PlayerCard({ jugador, index, isRevealed, onToggleReveal }) {
           </h3>
           <p style={{ fontFamily: FM, fontSize: "10px", color: "#4a3a5a", marginTop: "4px" }}>
             {jugador.aliens?.length || 0} alien{jugador.aliens?.length !== 1 ? "s" : ""}
+            {alienConfirmado && <span style={{ color: "#26c6c3", marginLeft: "6px" }}>· alien confirmado</span>}
           </p>
         </div>
       </div>
@@ -605,10 +743,39 @@ function PlayerCard({ jugador, index, isRevealed, onToggleReveal }) {
           {aliensLoading ? (
             <p style={{ fontFamily: FB, color: "#4a3a5a", fontSize: "13px" }}>Cargando...</p>
           ) : aliens.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              {aliens.map((alien, i) => (
-                <AlienCard key={alien?.id || i} alien={alien} simple={true} />
-              ))}
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {aliens.map((alien, i) => {
+                const isConfirmed = alienConfirmado === alien.id;
+                const canConfirm = !!onConfirmAlien && !!jugador.playerId;
+                return (
+                  <div key={alien?.id || i}>
+                    <AlienCard alien={alien} simple={true} />
+                    {canConfirm && (
+                      <button
+                        onClick={() => handleConfirmThisAlien(alien.id)}
+                        disabled={isConfirming}
+                        style={{
+                          marginTop: "6px", width: "100%", padding: "7px 12px",
+                          background: isConfirmed
+                            ? "rgba(38,198,195,0.18)"
+                            : "rgba(255,255,255,0.04)",
+                          border: `1px solid ${isConfirmed ? "rgba(38,198,195,0.5)" : "rgba(255,255,255,0.1)"}`,
+                          borderRadius: "6px",
+                          color: isConfirmed ? "#26c6c3" : "#8a7a9a",
+                          fontFamily: FM, fontSize: "10px", letterSpacing: "0.1em",
+                          cursor: isConfirming ? "not-allowed" : "pointer",
+                          transition: "all 0.2s",
+                        }}>
+                        {isConfirmed ? "✓ ESTE ES MI ALIEN" : isConfirming ? "..." : "👽 ESTE ES MI ALIEN"}
+                      </button>
+                    )}
+                  </div>
+                );
+
+                function handleConfirmThisAlien(id) {
+                  if (onConfirmAlien) onConfirmAlien(jugador.playerId, id);
+                }
+              })}
             </div>
           ) : (
             <p style={{ fontFamily: FB, color: "#2a1a3a", fontSize: "13px" }}>Sin aliens</p>
