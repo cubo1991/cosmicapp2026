@@ -79,6 +79,14 @@ function NewMatch() {
       jugadoresAsignados[c.name] !== undefined,
   );
 
+  // Sincronizar "asociarACopa" automáticamente:
+  // si algún color queda como visitante → desactivar copa
+  // si todos tienen jugador asignado → volver a activar copa
+  useEffect(() => {
+    if (coloresSeleccionados.length === 0) return;
+    setAsociarACopa(todosConJugador);
+  }, [todosConJugador, coloresSeleccionados.length]);
+
   const siguientePaso = () => {
     if (coloresSeleccionados.length === 0) {
       setError("Selecciona al menos un color para continuar");
@@ -346,25 +354,25 @@ function NewMatch() {
                   ))}
 
                   {/* Toggle: ¿Sumar a Copa? */}
-                  <div className="bg-blue-500/20 border border-blue-500 rounded-lg p-6 space-y-4">
+                  <div className={`border rounded-lg p-6 ${todosConJugador ? "bg-blue-500/20 border-blue-500" : "bg-gray-500/10 border-gray-600"}`}>
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-white font-semibold">
                           🏆 ¿Sumar a Copa?
                         </p>
-                        <p className="text-blue-200 text-sm mt-1">
+                        <p className={`text-sm mt-1 ${todosConJugador ? "text-blue-200" : "text-gray-400"}`}>
                           {todosConJugador
                             ? "✓ Todos los jugadores están asociados. La partida sumará a la copa activa."
-                            : "⚠️ Hay visitantes. Desactiva esta opción para crear partidas sin copa."}
+                            : "⚠️ Hay visitantes — la partida no suma a copa. Asigna todos los jugadores para habilitarlo."}
                         </p>
                       </div>
-                      <label className="flex items-center gap-3 cursor-pointer">
+                      <label className={`flex items-center gap-3 ${todosConJugador ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}>
                         <input
                           type="checkbox"
                           checked={asociarACopa}
                           onChange={(e) => setAsociarACopa(e.target.checked)}
                           disabled={!todosConJugador}
-                          className="w-6 h-6 cursor-pointer accent-blue-500"
+                          className="w-6 h-6 accent-blue-500"
                         />
                         <span className="text-white font-semibold">
                           {asociarACopa ? "SÍ" : "NO"}
