@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { activeCopaService } from '@/services/activeCopaService';
-import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, where, limit } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 
 const FD = "var(--font-display, 'Bebas Neue', Impact, sans-serif)";
@@ -24,25 +24,31 @@ export default function OrganizerPanel() {
         const info = await activeCopaService.obtenerInfoCopaActiva();
         setCopaInfo(info);
 
-        // Últimas 3 partidas finalizadas
+        // Últimas 3 partidas finalizadas — sort client-side to avoid composite index
         const finalizadasQ = query(
           collection(db, 'matches'),
           where('estado', '==', 'finalizada'),
-          orderBy('fechaFinalizacion', 'desc'),
-          limit(3)
+          limit(30)
         );
         const finalizadasSnap = await getDocs(finalizadasQ);
-        setRecentMatches(finalizadasSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const finalizadas = finalizadasSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (b.fechaFinalizacion?.seconds || 0) - (a.fechaFinalizacion?.seconds || 0))
+          .slice(0, 3);
+        setRecentMatches(finalizadas);
 
-        // Partidas activas pendientes de scoring
+        // Partidas activas pendientes de scoring — sort client-side
         const activasQ = query(
           collection(db, 'matches'),
           where('estado', '==', 'activa'),
-          orderBy('fechaCreacion', 'desc'),
-          limit(5)
+          limit(30)
         );
         const activasSnap = await getDocs(activasQ);
-        setPendingMatches(activasSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const activas = activasSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (b.fechaCreacion?.seconds || 0) - (a.fechaCreacion?.seconds || 0))
+          .slice(0, 5);
+        setPendingMatches(activas);
       } catch (err) {
         console.error(err);
         setError(err.message);
