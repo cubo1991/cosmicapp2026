@@ -148,6 +148,69 @@ export const playerService = {
   },
 
   /**
+   * Obtener el jugador vinculado a una cuenta de Firebase Auth.
+   * Devuelve null si esa cuenta todavía no reclamó ningún jugador.
+   */
+  async obtenerPorUid(uid): Promise<Record<string, any> | null> {
+    try {
+      const q = query(collection(db, 'players'), where('uid', '==', uid));
+      const querySnapshot = await getDocs(q);
+      const encontrado = querySnapshot.docs[0];
+      return encontrado ? { id: encontrado.id, ...encontrado.data() } : null;
+    } catch (error) {
+      console.error('Error obteniendo jugador por uid:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Jugadores que todavía nadie reclamó, para que quien entra por primera vez
+   * elija cuál es el suyo.
+   *
+   * ponytail: filtra en el cliente porque Firestore no sabe consultar por campo
+   * ausente. Con una liga de decenas de jugadores es gratis; si algún día son
+   * miles, hay que escribir `uid: null` al crear y consultar por ese valor.
+   */
+  async obtenerSinVincular(): Promise<Record<string, any>[]> {
+    try {
+      const todos = await this.obtenerTodos();
+      return todos.filter(jugador => !jugador.uid);
+    } catch (error) {
+      console.error('Error obteniendo jugadores sin vincular:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Vincular un jugador existente con una cuenta de Firebase Auth.
+   *
+   * No fusiona documentos: el jugador histórico simplemente gana una cuenta, así
+   * que su historial de partidas, copas y estadísticas queda intacto.
+   *
+   * Las reglas de Firestore rechazan el reclamo si el jugador ya tiene `uid`, si
+   * quien reclama es anónimo, o si intenta cambiar otro campo en la misma
+   * escritura. Esta comprobación previa solo sirve para dar un error entendible.
+   */
+  async vincularConCuenta(playerId, uid) {
+    try {
+      if (!uid) throw new Error('Se necesita una cuenta para vincular');
+
+      const jugador = await this.obtenerPorId(playerId);
+      if (!jugador) throw new Error('El jugador no existe');
+      if (jugador.uid) throw new Error('Ese jugador ya fue reclamado por otra cuenta');
+
+      const yaVinculado = await this.obtenerPorUid(uid);
+      if (yaVinculado) throw new Error(`Tu cuenta ya está vinculada a ${yaVinculado.name}`);
+
+      await updateDoc(doc(db, 'players', playerId), { uid });
+      return true;
+    } catch (error) {
+      console.error('Error vinculando jugador con cuenta:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Actualizar estadísticas de un jugador
    */
   async actualizarEstadisticas(playerId, partidas, victorias, puntosPromedio) {

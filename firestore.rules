@@ -24,7 +24,33 @@ service cloud.firestore {
     // ============ JUGADORES ============
     // Nota: "jugadores" son perfiles de torneo gestionados por quien organiza,
     // no cuentas 1:1 con el uid de quien los crea. El doc ID es autogenerado.
+    //
+    // VINCULACIÓN DE CUENTA: un jugador puede tener un campo `uid` que lo ata a
+    // una cuenta de Firebase Auth. Se usa para que alguien que entra por primera
+    // vez (sobre todo desde la app Android) reclame su jugador histórico en vez
+    // de crear un duplicado. El campo es opcional: los jugadores sin `uid` son
+    // los que todavía nadie reclamó.
+    //
+    // El resto de las escrituras sobre players siguen abiertas a cualquier
+    // usuario autenticado, porque el cálculo de puntos actualiza `stats` y
+    // `estadisticas` de todos los jugadores de una partida, no solo del propio.
+    // Por eso acá se protege únicamente el campo `uid`.
     match /players/{userId} {
+      // El update no toca `uid`: es una escritura normal (stats, nombre, etc.).
+      function noTocaUid() {
+        return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid']);
+      }
+
+      // Reclamo válido: el jugador no fue reclamado todavía, quien reclama lo
+      // hace para sí mismo, no es un usuario anónimo, y no aprovecha para
+      // cambiar ningún otro campo en la misma escritura.
+      function esReclamoValido() {
+        return !resource.data.keys().hasAny(['uid']) &&
+               request.resource.data.uid == request.auth.uid &&
+               request.auth.token.firebase.sign_in_provider != 'anonymous' &&
+               request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid']);
+      }
+
       // Leer: todos los usuarios autenticados
       allow read: if request.auth.uid != null;
 
@@ -32,10 +58,13 @@ service cloud.firestore {
       allow create: if request.auth.uid != null &&
                       request.resource.data.name != null &&
                       request.resource.data.email != null;
-      
-      // Actualizar: el propietario (sus datos), o cualquier auth para estadísticas/stats del sistema
-      allow update: if request.auth.uid != null;
-      
+
+      // Actualizar: escrituras normales del sistema, o un reclamo de vinculación.
+      // Un `uid` ya asignado solo lo puede cambiar un admin (para deshacer una
+      // vinculación equivocada).
+      allow update: if request.auth.uid != null &&
+                       (noTocaUid() || esReclamoValido() || isAdmin());
+
       // Borrar: solo admin
       allow delete: if isAdmin();
 
