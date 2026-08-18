@@ -158,7 +158,8 @@ Si se confirma: evaluar KMP (compartir data/domain, UI en SwiftUI) contra nativo
 |---|---|---|
 | 1 | Lógica duplicada web/Android corrompe datos compartidos | Cloud Functions antes de Etapa 3 (§2.2) |
 | 2 | Reglas de Firestore pensadas solo para la web | Auditoría en Etapa 0 |
-| 3 | Cambios de esquema en la web rompen la app (o viceversa) | Documento canónico de modelo de datos; convención de campos opcionales con defaults |
+| 3 | Cambios de esquema en la web rompen la app (o viceversa) | [`docs/MODELO_DATOS.md`](MODELO_DATOS.md) como fuente canónica; convención de campos opcionales con defaults |
+| 3b | `matches.jugadores` tiene dos formatos (map nuevo y array legacy) conviviendo | Normalizar con una migración **antes** de modelar en Kotlin (ver MODELO_DATOS.md) |
 | 4 | Dos codebases de UI para mantener con un solo dev | Alcance móvil deliberadamente menor (admin pesado queda en web) |
 | 5 | Costo Firebase al sumar listeners móviles en tiempo real | Escala actual (una liga) es trivial; revisar si crece |
 | 6 | ¿Cuenta de Google Play? (USD 25 una vez, verificación de identidad) | Resolver antes de Etapa 4; hasta entonces, App Distribution |
