@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCopas } from "@/hooks/useCopa";
+import { generarNombreCopa } from "@/utils/generadorNombres";
 
 export default function CrearCopa() {
   const { crear, loading, error } = useCopas();
@@ -15,6 +16,22 @@ export default function CrearCopa() {
 
   const [mensajeExito, setMensajeExito] = useState("");
   const [mensajeError, setMensajeError] = useState("");
+
+  const generarNombreEnFormulario = async () => {
+    const nombre = await generarNombreCopa();
+    setFormData((prev) => ({ ...prev, nombre }));
+  };
+
+  // Sugiere un nombre automáticamente al abrir el formulario
+  useEffect(() => {
+    let cancelled = false;
+    generarNombreCopa().then((nombre) => {
+      if (!cancelled) setFormData((prev) => ({ ...prev, nombre }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -57,6 +74,7 @@ export default function CrearCopa() {
         fechaFin: "",
         cantidadRondas: "",
       });
+      generarNombreEnFormulario();
       setTimeout(() => setMensajeExito(""), 3000);
     } else {
       setMensajeError(resultado.error || "Error al crear copa");

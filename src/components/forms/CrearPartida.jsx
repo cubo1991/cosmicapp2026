@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCrearMatch } from "@/hooks/useMatch";
 import { usePlayers } from "@/hooks/usePlayer";
 import { useCopas } from "@/hooks/useCopa";
 import { useLigas } from "@/hooks/useLiga";
+import { generarNombrePartida } from "@/utils/generadorNombres";
 
 export default function CrearPartida() {
   const { crear, loading, error } = useCrearMatch();
@@ -29,6 +30,22 @@ export default function CrearPartida() {
       [name]: value,
     }));
   };
+
+  const generarNombreEnFormulario = async () => {
+    const nombre = await generarNombrePartida();
+    setFormData((prev) => ({ ...prev, nombre }));
+  };
+
+  // Sugiere un nombre automáticamente al abrir el formulario
+  useEffect(() => {
+    let cancelled = false;
+    generarNombrePartida().then((nombre) => {
+      if (!cancelled) setFormData((prev) => ({ ...prev, nombre }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const toggleJugador = (playerId) => {
     setFormData((prev) => ({
@@ -65,6 +82,7 @@ export default function CrearPartida() {
     if (resultado.success) {
       setMensajeExito(`¡Partida creada! ID: ${resultado.matchId}`);
       setFormData({ nombre: "", jugadores: [], copId: "", ligaId: "" });
+      generarNombreEnFormulario();
       setTimeout(() => setMensajeExito(""), 3000);
     } else {
       setMensajeError(resultado.error || "Error al crear partida");

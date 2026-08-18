@@ -1,6 +1,6 @@
 'use client';
 
-import { addDoc, collection, getDocs, query, orderBy, limit, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, getDocs, query, where, orderBy, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { useStore } from '@/store/useStore';
 import { activeCopaService } from './activeCopaService';
@@ -124,4 +124,28 @@ export const createMatch = async (matchData) => {
 export const matchService = {
   // Las funcionalidades complejas están en los hooks (useCrearMatch, useMatch)
   // y en scoringService (para resultados y rankings)
+
+  /**
+   * Ganador(es) de la última partida finalizada (para el ticker del navbar).
+   * Usa el índice compuesto estado+fechaFinalizacion.
+   */
+  async obtenerUltimoGanador() {
+    const q = query(
+      collection(db, 'matches'),
+      where('estado', '==', 'finalizada'),
+      orderBy('fechaFinalizacion', 'desc'),
+      limit(1)
+    );
+    const snap = await getDocs(q);
+    if (snap.empty) return null;
+
+    const match = snap.docs[0].data();
+    const jugadores = Array.isArray(match.jugadores)
+      ? match.jugadores
+      : Object.values(match.jugadores || {});
+    const ganadores = jugadores.filter(j => j.esGanador).map(j => j.nombre).filter(Boolean);
+
+    if (ganadores.length === 0) return null;
+    return { nombres: ganadores, nombrePartida: match.nombre || null };
+  },
 };

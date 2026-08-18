@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
+import TickerBar from "@/components/TickerBar";
 
 const LINKS = [
   { href: "/cargarPartida", label: "Jugar" },
@@ -153,10 +154,12 @@ export default function NavBar() {
             ))}
           </div>
         </div>
+
+        <TickerBar />
       </nav>
 
-      {/* Espaciador para el nav fijo */}
-      <div className="h-14" />
+      {/* Espaciador para el nav fijo (h-14 del header + 28px del ticker) */}
+      <div style={{ height: "calc(3.5rem + 28px)" }} />
     </>
   );
 }

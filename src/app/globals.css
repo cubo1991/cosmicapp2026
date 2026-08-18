@@ -636,6 +636,37 @@ h1, h2, h3, h4 {
   to   { top: 115%; }
 }
 
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* ── Ticker bar (debajo del navbar) ── */
+.ticker-bar {
+  height: 28px;
+  overflow: hidden;
+  white-space: nowrap;
+  border-top: 1px solid var(--c-gold-dim);
+  background: rgba(200, 153, 42, 0.05);
+}
+
+.ticker-track {
+  display: inline-flex;
+  width: max-content;
+  height: 100%;
+  animation: ticker-scroll 60s linear infinite;
+}
+
+.ticker-item {
+  display: inline-block;
+  padding: 0 48px;
+  line-height: 28px;
+  font-family: var(--font-mono, 'Space Mono', monospace);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--c-gold);
+}
+
 /* ── Game Panel — FFG card-like borders ── */
 .game-panel {
   position: relative;

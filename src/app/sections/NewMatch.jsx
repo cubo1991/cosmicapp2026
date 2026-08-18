@@ -4,6 +4,7 @@ import codigoColores from "../utils/colors";
 import Jugador from "../models/jugador";
 import { createMatch } from "@/services/matchService";
 import asignadorAliens from "../utils/asignadorAliens";
+import { generarNombrePartida } from "@/utils/generadorNombres";
 import { useStore } from "@/store/useStore";
 import { usePlayers } from "@/hooks/usePlayer";
 import { LoadingOverlay } from "../components/LoadingOverlay";
@@ -157,7 +158,8 @@ function NewMatch() {
         nombre: j.nombre, color: j.color, playerId: j.playerId || null, aliens: j.aliens || [],
       }));
 
-      await createMatch({ jugadores: jugadoresSerializados, asociarACopa });
+      const nombre = await generarNombrePartida();
+      await createMatch({ nombre, jugadores: jugadoresSerializados, asociarACopa });
       setPartidaCreada(true);
     } catch (err) {
       console.error(err);
