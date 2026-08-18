@@ -12,7 +12,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
 const UID_GOOGLE = 'uid-de-david';
 const UID_OTRO = 'uid-de-otra-persona';
@@ -53,6 +53,7 @@ async function sembrar() {
     });
     // Un admin de verdad: su doc solo se crea a mano desde la consola.
     await setDoc(doc(db, `admins/${UID_ADMIN}`), { alta: true });
+    await setDoc(doc(db, 'alienList/zombie'), { Nombre: 'Zombie' });
   });
 }
 
@@ -102,6 +103,18 @@ const casos = [
     esperado: 'permitido',
     accion: () =>
       updateDoc(doc(anonimo(), 'players/reclamado'), { 'estadisticas.jugadas': 366 }),
+  },
+  {
+    // La web navega con sesion anonima: si esto se denegara, se romperian la
+    // lista de aliens, el asignador aleatorio y el generador de nombres.
+    nombre: 'la sesion anonima puede leer el catalogo de aliens',
+    esperado: 'permitido',
+    accion: () => getDoc(doc(anonimo(), 'alienList/zombie')),
+  },
+  {
+    nombre: 'nadie que no sea admin puede escribir el catalogo de aliens',
+    esperado: 'denegado',
+    accion: () => setDoc(doc(conGoogle(), 'alienList/inventado'), { Nombre: 'Falso' }),
   },
 ];
 

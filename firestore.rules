@@ -138,6 +138,16 @@ service cloud.firestore {
                         resource.data.estado == 'planificada');
     }
     
+    // ============ ALIENS ============
+    // Catálogo del juego: lo leen la lista de aliens, el asignador aleatorio,
+    // JoinMatch, el perfil de jugador y el generador de nombres. En la práctica
+    // es de solo lectura (addAlien() existe en firebase/db.ts pero no lo llama
+    // ninguna pantalla), así que las escrituras quedan para admin.
+    match /alienList/{alienId} {
+      allow read: if request.auth.uid != null;
+      allow write: if isAdmin();
+    }
+
     // ============ SNAPSHOTS ============
     match /snapshots/{snapshotId} {
       allow read, write: if request.auth.uid != null;
