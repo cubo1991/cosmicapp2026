@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "1029573193168",
+    "project_id": "cosmic-selector",
+    "storage_bucket": "cosmic-selector.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1029573193168:android:d403610a7f823d5d92ddd5",
+        "android_client_info": {
+          "package_name": "com.lce.cosmicapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1029573193168-0ms55e629pbhgivuguubol0iie4fidh1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.lce.cosmicapp",
+            "certificate_hash": "8aec7c3504d4cb5c8af75500ba58a39bec22b064"
+          }
+        },
+        {
+          "client_id": "1029573193168-idvde3fu054e7u3bmuc3iuvhc35636st.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAOS9si_K_1owA345-UHF0oHfTWXyFiRhU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1029573193168-bd2mkfn7s9ima66e66sdajk53j16vhkc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
