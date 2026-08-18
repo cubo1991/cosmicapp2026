@@ -47,7 +47,7 @@ service cloud.firestore {
       function esReclamoValido() {
         return !resource.data.keys().hasAny(['uid']) &&
                request.resource.data.uid == request.auth.uid &&
-               request.auth.token.firebase.sign_in_provider != 'anonymous' &&
+               request.auth.token.get('firebase', {}).get('sign_in_provider', '') != 'anonymous' &&
                request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid']);
       }
 
