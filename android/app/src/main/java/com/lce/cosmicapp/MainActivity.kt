@@ -44,10 +44,12 @@ import com.lce.cosmicapp.data.Jugador
 import com.lce.cosmicapp.ui.Cargando
 import com.lce.cosmicapp.ui.EstadoSesion
 import com.lce.cosmicapp.ui.LigaViewModel
+import com.lce.cosmicapp.ui.PantallaAliens
 import com.lce.cosmicapp.ui.PantallaCopa
 import com.lce.cosmicapp.ui.PantallaPartidas
 import com.lce.cosmicapp.ui.PantallaPerfil
 import com.lce.cosmicapp.ui.PantallaRanking
+import com.lce.cosmicapp.ui.PantallaSala
 import com.lce.cosmicapp.ui.SesionViewModel
 import com.lce.cosmicapp.ui.theme.CosmicAppTheme
 
@@ -129,6 +131,7 @@ private enum class Pestana(val etiqueta: String, val emoji: String) {
     COPA("Copa", "🏆"),
     RANKING("Ranking", "📊"),
     PARTIDAS("Partidas", "🎲"),
+    ALIENS("Aliens", "👽"),
     PERFIL("Perfil", "👤")
 }
 
@@ -139,8 +142,20 @@ private fun PantallaPrincipal(
     ligaVm: LigaViewModel = viewModel()
 ) {
     val liga by ligaVm.estado.collectAsState()
+    val sala by ligaVm.sala.collectAsState()
     var pestanaActual by rememberSaveable { mutableIntStateOf(0) }
     val pestanas = Pestana.entries
+
+    // La sala tapa las pestañas: mientras seguís una partida, es lo único que importa.
+    if (sala.partida != null || sala.buscando) {
+        PantallaSala(
+            estado = sala,
+            nombresPorId = liga.nombresPorId,
+            onCerrar = ligaVm::cerrarSala,
+            modifier = Modifier.fillMaxSize()
+        )
+        return
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -166,7 +181,14 @@ private fun PantallaPrincipal(
             else -> when (pestanas[pestanaActual]) {
                 Pestana.COPA -> PantallaCopa(liga.copaActiva, contenido)
                 Pestana.RANKING -> PantallaRanking(liga.rankingGlobal, contenido)
-                Pestana.PARTIDAS -> PantallaPartidas(liga.partidas, contenido)
+                Pestana.PARTIDAS -> PantallaPartidas(
+                    partidas = liga.partidas,
+                    errorCodigo = sala.error,
+                    onBuscarCodigo = ligaVm::abrirSalaPorCodigo,
+                    onAbrir = ligaVm::abrirSala,
+                    modifier = contenido
+                )
+                Pestana.ALIENS -> PantallaAliens(liga.aliens, contenido)
                 Pestana.PERFIL -> PantallaPerfil(jugador, liga.copasCerradas, onSalir, contenido)
             }
         }

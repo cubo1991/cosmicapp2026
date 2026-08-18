@@ -54,14 +54,15 @@ Este documento existe para cerrar ese hueco. Idealmente, más adelante, tipar ta
 | `fechaCreacion` | Timestamp | |
 | `sessionId` | string | Agrupa partidas consecutivas (ver abajo) |
 | `jugadores` | **map \| array** | ⚠️ **dos formatos** (ver abajo) |
-| `copaId` | string? | Copa activa al momento de crearse |
+| `copId` | string? | Copa asociada. **Ojo: se llama `copId`, no `copaId`** |
+| `asociarACopa` | boolean | Default `true`. En `false` la partida no suma a la copa |
 
 #### ⚠️ Landmine 1 — `jugadores` tiene dos formatos
 
 `matchService.ts` soporta ambos y hay documentos viejos con el formato legacy:
 
-- **Nuevo (map)**: `{ [playerId]: { coloniasInternas, coloniasExternas, ... } }`
-- **Legacy (array)**: `[{ nombre, color, playerId, aliens }]`
+- **Nuevo (map)**: `{ [playerId]: { nombre, coloniasInternas, coloniasExternas, esGanador, puntos, posicion } }`. El `nombre` suele venir **vacío**: hay que resolver la clave contra `players`. Al finalizar se le agregan `participó` (con tilde) y `puntos` pasa a ser un objeto `{ colonias, victoria, total }`.
+- **Legacy (array)**: `[{ nombre, color, playerId, aliens }]`. ⚠️ **Los visitantes tienen `playerId: null`** y solo traen `nombre`; si filtrás por `playerId` los perdés a todos. Hay partidas reales compuestas enteramente por visitantes.
 
 El código web hace `Array.isArray(m.jugadores) ? ... : Object.keys(...)` en cada lectura. Android **tiene que hacer lo mismo** — un `data class` que asuma un solo formato va a explotar contra los documentos viejos. Opciones: deserializador custom, o una migración previa que normalice todo a map (preferible, y conviene hacerla antes de escribir el cliente Kotlin).
 

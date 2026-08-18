@@ -1,5 +1,6 @@
 package com.lce.cosmicapp.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -78,17 +79,29 @@ fun PantallaRanking(ranking: List<Puesto>, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun PantallaPartidas(partidas: List<Partida>, modifier: Modifier = Modifier) {
-    if (partidas.isEmpty()) {
-        Aviso("Todavía no hay partidas.", modifier)
-        return
-    }
+fun PantallaPartidas(
+    partidas: List<Partida>,
+    errorCodigo: String?,
+    onBuscarCodigo: (String) -> Unit,
+    onAbrir: (Partida) -> Unit,
+    modifier: Modifier = Modifier
+) {
     Column(modifier.padding(16.dp)) {
         Text("Partidas", style = MaterialTheme.typography.headlineMedium)
+        Spacer(Modifier.height(12.dp))
+        BuscadorDeCodigo(onBuscar = onBuscarCodigo, error = errorCodigo)
         Spacer(Modifier.height(16.dp))
+
+        if (partidas.isEmpty()) {
+            Text("Todavía no hay partidas.", style = MaterialTheme.typography.bodyMedium)
+            return@Column
+        }
+
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(partidas, key = { it.id }) { partida ->
-                Card(Modifier.fillMaxWidth()) {
+                Card(
+                    Modifier.fillMaxWidth().clickable { onAbrir(partida) }
+                ) {
                     Column(Modifier.padding(12.dp)) {
                         Text(partida.nombre, style = MaterialTheme.typography.titleMedium)
                         Text(

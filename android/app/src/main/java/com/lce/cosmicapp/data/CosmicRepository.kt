@@ -10,6 +10,9 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import com.lce.cosmicapp.R
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 
 /**
@@ -54,6 +57,43 @@ data class Partida(
     val estado: String,
     val cantidadJugadores: Int,
     val fecha: java.util.Date? = null
+) {
+    val finalizada: Boolean get() = estado == "finalizada"
+}
+
+/**
+ * Un alien del juego. Ojo con los nombres de campo en Firestore: vienen con
+ * mayuscula inicial y con tilde (`Descripción`, `Expansión`).
+ */
+data class Alien(
+    val id: String,
+    val nombre: String,
+    val poder: String,
+    val descripcion: String,
+    val dificultad: String,
+    val expansion: String
+)
+
+/**
+ * Alguien sentado en una partida. Puede ser un jugador de la liga (con
+ * `playerId`) o un visitante suelto, que no tiene ficha en la base y solo
+ * aparece con nombre y color.
+ */
+data class Participante(val playerId: String?, val nombre: String?) {
+    /** El nombre propio si lo trae; si no, hay que resolver el id contra players. */
+    fun mostrar(nombresPorId: Map<String, String>): String =
+        nombre?.takeIf { it.isNotBlank() }
+            ?: playerId?.let { nombresPorId[it] }
+            ?: "Sin nombre"
+}
+
+/** Una partida abierta desde su codigo, para seguirla en la mesa. */
+data class PartidaDetalle(
+    val id: String,
+    val nombre: String,
+    val codigo: String,
+    val estado: String,
+    val participantes: List<Participante>
 ) {
     val finalizada: Boolean get() = estado == "finalizada"
 }
@@ -159,6 +199,53 @@ object CosmicRepository {
             .limit(cuantas).get().await()
             .documents.map { it.aPartida() }
 
+    /** Catalogo de aliens. Es de solo lectura: las reglas solo dejan escribir a admin. */
+    suspend fun aliens(): List<Alien> =
+        db.collection("alienList").get().await()
+            .documents.map {
+                Alien(
+                    id = it.id,
+                    nombre = it.getString("Nombre") ?: "?",
+                    poder = it.getString("Poder") ?: "",
+                    descripcion = it.getString("Descripción") ?: "",
+                    dificultad = it.getString("Dificultad") ?: "",
+                    expansion = it.getString("Expansión") ?: ""
+                )
+            }
+            .sortedBy { it.nombre.lowercase() }
+
+    /** Nombre de cada jugador por su id, para resolver los ids que guarda la partida. */
+    suspend fun nombresDeJugadores(): Map<String, String> =
+        db.collection("players").get().await()
+            .documents.associate { it.id to (it.getString("name") ?: "?") }
+
+    /**
+     * Busca una partida por su codigo corto compartible. El codigo se guarda en
+     * mayusculas, asi que normalizamos lo que escriba la persona.
+     */
+    suspend fun buscarPartidaPorCodigo(codigo: String): PartidaDetalle? =
+        db.collection("matches")
+            .whereEqualTo("codigo", codigo.trim().uppercase())
+            .limit(1).get().await()
+            .documents.firstOrNull()?.aDetalle()
+
+    /**
+     * Sigue una partida en vivo: mientras la sala este abierta, cualquier cambio
+     * que haga la web (jugadores, estado) llega solo. Es lo que justifica tener
+     * la app en la mesa.
+     */
+    fun observarPartida(partidaId: String): Flow<PartidaDetalle?> = callbackFlow {
+        val registro = db.collection("matches").document(partidaId)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    close(error)
+                } else {
+                    trySend(snapshot?.takeIf { it.exists() }?.aDetalle())
+                }
+            }
+        awaitClose { registro.remove() }
+    }
+
     /** Alta de alguien que no estaba en la liga. */
     suspend fun crearJugador(nombre: String, email: String, uid: String): Jugador {
         val nuevo = mapOf(
@@ -176,6 +263,34 @@ object CosmicRepository {
         val ref = db.collection("players").add(nuevo).await()
         return Jugador(id = ref.id, nombre = nombre, uid = uid)
     }
+}
+
+private fun com.google.firebase.firestore.DocumentSnapshot.aDetalle(): PartidaDetalle {
+    // Mismo landmine que en aPartida(): `jugadores` viene como mapa o como lista.
+    // Ojo: en el formato legacy los visitantes tienen playerId = null y solo
+    // traen `nombre`, asi que filtrar por playerId deja la sala vacia.
+    val jugadores = get("jugadores")
+    return PartidaDetalle(
+        id = id,
+        nombre = getString("nombre") ?: "Partida",
+        codigo = getString("codigo") ?: "",
+        estado = getString("estado") ?: "?",
+        participantes = when (jugadores) {
+            // Mapa nuevo: la clave es el playerId y `nombre` suele venir vacio.
+            is Map<*, *> -> jugadores.entries.mapNotNull { (clave, valor) ->
+                (clave as? String)?.let {
+                    Participante(it, (valor as? Map<*, *>)?.get("nombre") as? String)
+                }
+            }
+            // Lista legacy: jugadores de la liga y visitantes conviviendo.
+            is List<*> -> jugadores.mapNotNull { fila ->
+                (fila as? Map<*, *>)?.let {
+                    Participante(it["playerId"] as? String, it["nombre"] as? String)
+                }
+            }
+            else -> emptyList()
+        }
+    )
 }
 
 private fun com.google.firebase.firestore.DocumentSnapshot.aCopa(): Copa {
