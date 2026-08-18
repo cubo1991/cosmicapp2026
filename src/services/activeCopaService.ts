@@ -52,7 +52,7 @@ export const activeCopaService = {
    * Llamado automáticamente cuando la partida 10 es finalizada (scoring),
    * o como fallback cuando se detecta una copa llena.
    */
-  async _cerrarCopaConGanador(copaId, rankingActual) {
+  async _cerrarCopaConGanador(copaId: string, rankingActual: Record<string, any> = {}) {
     try {
       const entries = Object.entries(rankingActual);
       let ganador = null;

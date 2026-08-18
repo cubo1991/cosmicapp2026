@@ -24,7 +24,7 @@ export const copaService = {
   /**
    * Crear una nueva copa
    */
-  async crear(nombre, descripcion = '', fechaInicio, fechaFin, reglas = {}) {
+  async crear(nombre: string, descripcion = '', fechaInicio: string | Date, fechaFin: string | Date, reglas: Record<string, any> = {}) {
     try {
       const docRef = await addDoc(collection(db, 'copas'), {
         nombre,
@@ -178,11 +178,11 @@ export const copaService = {
       const docSnap = await getDoc(docRef);
       
       if (docSnap.exists()) {
-        const ranking = docSnap.data().ranking || {};
+        const ranking: Record<string, any> = docSnap.data().ranking || {};
         // Ordenar por puntosSTTotal descendente
         const rankingOrdenado = Object.entries(ranking)
           .sort((a, b) => (b[1].puntosTotales || 0) - (a[1].puntosTotales || 0))
-          .reduce((acc, [key, value], index) => {
+          .reduce((acc: Record<string, any>, [key, value], index) => {
             acc[key] = { ...value, posicion: index + 1 };
             return acc;
           }, {});

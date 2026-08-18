@@ -166,11 +166,11 @@ export const ligaService = {
       const docSnap = await getDoc(docRef);
       
       if (docSnap.exists()) {
-        const ranking = docSnap.data().ranking || {};
+        const ranking: Record<string, any> = docSnap.data().ranking || {};
         // Ordenar por puntosTotales descendente
         const rankingOrdenado = Object.entries(ranking)
           .sort((a, b) => (b[1].puntosTotales || 0) - (a[1].puntosTotales || 0))
-          .reduce((acc, [key, value], index) => {
+          .reduce((acc: Record<string, any>, [key, value], index) => {
             acc[key] = { ...value, posicion: index + 1 };
             return acc;
           }, {});
@@ -241,7 +241,7 @@ export const ligaService = {
   async actualizarEstado(ligaId, nuevoEstado) {
     try {
       const docRef = doc(db, 'ligas', ligaId);
-      const updateData = { 
+      const updateData: Record<string, any> = {
         estado: nuevoEstado,
         updatedAt: serverTimestamp()
       };

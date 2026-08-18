@@ -87,7 +87,7 @@ export const deleteMatchService = {
 
           // Subtract exact points recorded per player for this position
           const rankingActualizado = Object.fromEntries(
-            Object.entries(ranking).map(([pid, datos]) => {
+            Object.entries(ranking).map(([pid, datos]: [string, any]) => {
               const puntosEstaPartida = datos.puntosPorPosicion?.[posicion] || 0;
               const nuevosTotales     = Math.max(0, (datos.puntosTotales || 0) - puntosEstaPartida);
 
@@ -108,17 +108,17 @@ export const deleteMatchService = {
           // Re-sort positions
           const rankingOrdenado = Object.entries(rankingActualizado)
             .sort((a, b) => (b[1].puntosTotales || 0) - (a[1].puntosTotales || 0))
-            .reduce((acc, [pid, datos], idx) => {
+            .reduce((acc: Record<string, any>, [pid, datos], idx) => {
               acc[pid] = { ...datos, posicion: idx + 1 };
               return acc;
             }, {});
 
           // Remove match from partidas array & reopen copa if it was finalizada
           const partidasActualizadas = (copa.partidas || []).filter(
-            p => p.matchId !== matchId
+            (p: any) => p.matchId !== matchId
           );
 
-          const copaUpdates = { ranking: rankingOrdenado, partidas: partidasActualizadas };
+          const copaUpdates: Record<string, any> = { ranking: rankingOrdenado, partidas: partidasActualizadas };
           // If the copa was closed because of this match (posicion 10), reopen it
           if (copa.estado === 'finalizada' && posicion === 10) {
             copaUpdates.estado = 'activa';

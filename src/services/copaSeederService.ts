@@ -81,7 +81,7 @@ const COPA_HISTORICA = [
 ];
 
 export const copaSeederService = {
-  async sembrarCopaHistorica(onProgress = () => {}) {
+  async sembrarCopaHistorica(onProgress: (msg: string) => void = () => {}) {
     onProgress('Buscando jugadores en Firebase...');
 
     const playersSnap = await getDocs(collection(db, 'players'));
@@ -124,7 +124,7 @@ export const copaSeederService = {
     onProgress(`${validos.length} jugadores validados. Preparando datos...`);
 
     // Distribuir puntos por partida (promedio = puntosTotales / partidas jugadas)
-    const puntosParaMatches = Array.from({ length: 10 }, () => ({}));
+    const puntosParaMatches: Record<string, any>[] = Array.from({ length: 10 }, () => ({}));
 
     validos.forEach(j => {
       const participaciones = j.patron.filter(Boolean).length;
@@ -150,7 +150,7 @@ export const copaSeederService = {
     });
 
     // Construir ranking de la copa
-    const ranking = {};
+    const ranking: Record<string, any> = {};
     validos.forEach(j => {
       const participaciones = j.patron.filter(Boolean).length;
       const promedio = participaciones > 0

@@ -29,9 +29,10 @@ export const bulkMatchService = {
    * 
    * Retorna: { success, matchId, mensaje }
    */
-  async cargarPartidaManual(matchData) {
+  async cargarPartidaManual(matchData: any) {
     try {
-      const { nombre, fecha, jugadores } = matchData;
+      const { nombre, fecha } = matchData;
+      const jugadores: Record<string, any> = matchData.jugadores || {};
 
       // Validaciones más específicas
       if (!nombre || typeof nombre !== 'string' || nombre.trim() === '') {
@@ -224,7 +225,7 @@ export const bulkMatchService = {
 
     for (let i = 1; i < lines.length; i++) {
       const values = lines[i].split(',').map(v => v.trim());
-      const row = {};
+      const row: Record<string, string> = {};
 
       headers.forEach((header, idx) => {
         row[header] = values[idx];

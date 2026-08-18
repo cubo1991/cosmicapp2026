@@ -34,7 +34,7 @@ export const validaciones = {
   /**
    * Validar resultados de partida
    */
-  validarResultados: (jugadores) => {
+  validarResultados: (jugadores: Record<string, any>) => {
     const errores = [];
     
     if (!jugadores || Object.keys(jugadores).length === 0) {

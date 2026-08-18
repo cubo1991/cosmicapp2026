@@ -92,7 +92,7 @@ export const estadisticasService = {
     const snapshot = snapshotSnap.data();
     const batch = writeBatch(db);
 
-    Object.entries(snapshot.data).forEach(([playerId, datos]) => {
+    Object.entries(snapshot.data).forEach(([playerId, datos]: [string, any]) => {
       batch.update(doc(db, 'players', playerId), {
         estadisticas: datos.estadisticas,
         updatedAt: serverTimestamp()

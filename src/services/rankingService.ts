@@ -26,11 +26,11 @@ export const rankingService = {
    * - jugadoresConPuntos: { playerId: { nombre, puntos, esGanador, participó } }
    * - fechaPartida: timestamp o Date
    */
-  async registrarPartidaPorJugador(matchId, jugadoresConPuntos, fechaPartida, alienesPorPlayer = {}, extraMeta = {}) {
+  async registrarPartidaPorJugador(matchId: string, jugadoresConPuntos: Record<string, any>, fechaPartida: any, alienesPorPlayer: Record<string, any> = {}, extraMeta: Record<string, any> = {}) {
     try {
       const batch = writeBatch(db);
 
-      Object.entries(jugadoresConPuntos).forEach(([playerId, datos]) => {
+      Object.entries(jugadoresConPuntos).forEach(([playerId, datos]: [string, any]) => {
         // Solo registrar si el jugador participó
         if (datos.participó !== false) {
           const matchSubcolRef = doc(
@@ -114,7 +114,7 @@ export const rankingService = {
       const playersSnap = await getDocs(collection(db, 'players'));
 
       return playersSnap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
+        .map((d): Record<string, any> => ({ id: d.id, ...d.data() }))
         .filter(j => (j.last10Score || 0) > 0)
         .sort((a, b) => (b.last10Score || 0) - (a.last10Score || 0))
         .slice(0, 100)

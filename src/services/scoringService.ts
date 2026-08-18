@@ -29,7 +29,7 @@ export const scoringService = {
    * - Puntos Victoria = (total jugadores) / (cantidad ganadores)
    * - Puntos Totales = Puntos Colonias + Puntos Victoria (si es ganador)
    */
-  calcularPuntosJugador(coloniasInternas, coloniasExternas, esGanador, puntosVictoria) {
+  calcularPuntosJugador(coloniasInternas: number, coloniasExternas: number, esGanador: boolean, puntosVictoria: number) {
     const puntosColonias = (coloniasInternas * 1) + (coloniasExternas * 2);
     const puntosTotales = puntosColonias + (esGanador ? puntosVictoria : 0);
     
@@ -44,7 +44,7 @@ export const scoringService = {
    * Calcular puntos de victoria
    * Fórmula: totalJugadores / cantidadGanadores
    */
-  calcularPuntosVictoria(totalJugadores, cantidadGanadores) {
+  calcularPuntosVictoria(totalJugadores: number, cantidadGanadores: number) {
     if (cantidadGanadores === 0) {
       throw new Error('Debe haber al menos un ganador');
     }
@@ -60,14 +60,14 @@ export const scoringService = {
    *   player2: { nombre, CI, CE, ganador, participó }
    * }
    */
-  procesarResultadosPartida(datosFormulario) {
+  procesarResultadosPartida(datosFormulario: Record<string, any>) {
     // PASO 1: Identificar participantes (tienen CI o CE > 0, o flag participó = true)
     const participantes = Object.entries(datosFormulario)
-      .filter(([_, datos]) => {
+      .filter(([_, datos]: [string, any]) => {
         // Participa si: flag explícito O tiene colonias
         return datos.participó === true || (datos.CI || 0) > 0 || (datos.CE || 0) > 0;
       })
-      .map(([id, datos]) => ({
+      .map(([id, datos]: [string, any]) => ({
         id,
         nombre:   datos.nombre,
         color:    datos.color    || null,
@@ -94,7 +94,7 @@ export const scoringService = {
     const puntosVictoria = participantes.length / ganadores;
 
     // PASO 4: Construir resultado final
-    const resultados = {};
+    const resultados: Record<string, any> = {};
 
     // Agregar participantes con cálculo de puntos
     participantes.forEach((p) => {
@@ -166,20 +166,20 @@ export const scoringService = {
   /**
    * Actualizar ranking de una copa con los puntos de la partida
    */
-  async actualizarRankingCopa(copaId, matchData, jugadoresConPuntos) {
+  async actualizarRankingCopa(copaId: string, matchData: any, jugadoresConPuntos: Record<string, any>) {
     try {
       const copaRef = doc(db, 'copas', copaId);
       const copaSnap = await getDoc(copaRef);
-      
+
       if (!copaSnap.exists()) {
         throw new Error('Copa no encontrada');
       }
-      
-      const rankingActual = copaSnap.data().ranking || {};
-      const rankingActualizado = { ...rankingActual };
-      
+
+      const rankingActual: Record<string, any> = copaSnap.data().ranking || {};
+      const rankingActualizado: Record<string, any> = { ...rankingActual };
+
       // Actualizar o crear entrada en ranking para cada jugador
-      Object.entries(jugadoresConPuntos).forEach(([playerId, datosJugador]) => {
+      Object.entries(jugadoresConPuntos).forEach(([playerId, datosJugador]: [string, any]) => {
         if (!rankingActualizado[playerId]) {
           rankingActualizado[playerId] = {
             nombreJugador: datosJugador.nombre,
@@ -193,7 +193,7 @@ export const scoringService = {
         rankingActualizado[playerId].puntosTotales += datosJugador.puntos;
         rankingActualizado[playerId].participaciones += 1;
         rankingActualizado[playerId].historial.push({
-          matchId,
+          matchId: matchData.id,
           puntos: datosJugador.puntos,
           fecha: new Date().toISOString()
         });
@@ -202,16 +202,16 @@ export const scoringService = {
       // Recalcular posiciones
       const rankingOrdenado = Object.entries(rankingActualizado)
         .sort((a, b) => (b[1].puntosTotales || 0) - (a[1].puntosTotales || 0))
-        .reduce((acc, [key, value], index) => {
+        .reduce((acc: Record<string, any>, [key, value], index) => {
           acc[key] = { ...value, posicion: index + 1 };
           return acc;
         }, {});
-      
+
       await updateDoc(copaRef, {
         ranking: rankingOrdenado,
         updatedAt: serverTimestamp()
       });
-      
+
       return rankingOrdenado;
     } catch (error) {
       console.error('Error actualizando ranking de copa:', error);
@@ -229,26 +229,26 @@ export const scoringService = {
    * - matchId: ID de la partida
    * - jugadoresConPuntos: objeto con resultados de procesarResultadosPartida
    */
-  async actualizarRankingCopaSeguro(copaId, posicion, matchId, jugadoresConPuntos) {
+  async actualizarRankingCopaSeguro(copaId: string, posicion: number, matchId: string, jugadoresConPuntos: Record<string, any>) {
     try {
       const copaRef = doc(db, 'copas', copaId);
       const copaSnap = await getDoc(copaRef);
-      
+
       if (!copaSnap.exists()) {
         throw new Error('Copa no encontrada');
       }
-      
+
       const copa = copaSnap.data();
-      const ranking = copa.ranking || {};
-      
+      const ranking: Record<string, any> = copa.ranking || {};
+
       // Validar que no haya duplicados en el historial de ediciones
       // (para detectar cambios no autorizados)
-      const isEdicion = copa.partidas?.some(p => p.posicion === posicion && p.estado === 'cargada');
-      
+      const isEdicion = copa.partidas?.some((p: any) => p.posicion === posicion && p.estado === 'cargada');
+
       // Actualizar ranking con lógica de PARTICIPACIÓN
-      const jugadoresActualizados = { ...ranking };
-      
-      Object.entries(jugadoresConPuntos).forEach(([playerId, datos]) => {
+      const jugadoresActualizados: Record<string, any> = { ...ranking };
+
+      Object.entries(jugadoresConPuntos).forEach(([playerId, datos]: [string, any]) => {
         if (!jugadoresActualizados[playerId]) {
           jugadoresActualizados[playerId] = {
             nombreJugador: datos.nombre,
@@ -285,14 +285,14 @@ export const scoringService = {
       // Recalcular posiciones en el ranking
       const rankingOrdenado = Object.entries(jugadoresActualizados)
         .sort((a, b) => (b[1].puntosTotales || 0) - (a[1].puntosTotales || 0))
-        .reduce((acc, [key, value], index) => {
+        .reduce((acc: Record<string, any>, [key, value], index) => {
           acc[key] = { ...value, posicion: index + 1 };
           return acc;
         }, {});
-      
+
       // Actualizar estado de la partida en la copa
-      const partidasActualizadas = (copa.partidas || []).map(p => 
-        p.posicion === posicion 
+      const partidasActualizadas = (copa.partidas || []).map((p: any) =>
+        p.posicion === posicion
           ? { ...p, estado: 'cargada', ultimaEdicion: new Date() }
           : p
       );
@@ -319,20 +319,20 @@ export const scoringService = {
   /**
    * Actualizar ranking de una liga con los puntos de la partida
    */
-  async actualizarRankingLiga(ligaId, matchData, jugadoresConPuntos) {
+  async actualizarRankingLiga(ligaId: string, matchData: any, jugadoresConPuntos: Record<string, any>) {
     try {
       const ligaRef = doc(db, 'ligas', ligaId);
       const ligaSnap = await getDoc(ligaRef);
-      
+
       if (!ligaSnap.exists()) {
         throw new Error('Liga no encontrada');
       }
-      
-      const rankingActual = ligaSnap.data().ranking || {};
-      const rankingActualizado = { ...rankingActual };
-      
+
+      const rankingActual: Record<string, any> = ligaSnap.data().ranking || {};
+      const rankingActualizado: Record<string, any> = { ...rankingActual };
+
       // Actualizar o crear entrada en ranking para cada jugador
-      Object.entries(jugadoresConPuntos).forEach(([playerId, datosJugador]) => {
+      Object.entries(jugadoresConPuntos).forEach(([playerId, datosJugador]: [string, any]) => {
         if (!rankingActualizado[playerId]) {
           rankingActualizado[playerId] = {
             nombreJugador: datosJugador.nombre,
@@ -352,11 +352,11 @@ export const scoringService = {
       // Recalcular posiciones
       const rankingOrdenado = Object.entries(rankingActualizado)
         .sort((a, b) => (b[1].puntosTotales || 0) - (a[1].puntosTotales || 0))
-        .reduce((acc, [key, value], index) => {
+        .reduce((acc: Record<string, any>, [key, value], index) => {
           acc[key] = { ...value, posicion: index + 1 };
           return acc;
         }, {});
-      
+
       await updateDoc(ligaRef, {
         ranking: rankingOrdenado,
         updatedAt: serverTimestamp()
@@ -375,7 +375,7 @@ export const scoringService = {
    * @param {string} playerId
    * @param {object} resultado - objeto resultado de procesarResultadosPartida para este jugador
    */
-  async actualizarEstadisticasJugador(playerId, resultado) {
+  async actualizarEstadisticasJugador(playerId: string, resultado: any) {
     try {
       const playerRef = doc(db, 'players', playerId);
       const playerSnap = await getDoc(playerRef);
@@ -392,7 +392,7 @@ export const scoringService = {
       const statsActuales = playerSnap.data().stats || {};
       const nuevasVictorias = (statsActuales.victorias || 0) + (esGanador ? 1 : 0);
 
-      const updates = {
+      const updates: Record<string, any> = {
         'stats.victorias': nuevasVictorias,
         'stats.ultimaPartida': serverTimestamp()
       };
@@ -439,7 +439,7 @@ export const scoringService = {
    *   playerId: { nombre, CI, CE, ganador, participó }
    * }
    */
-  async finalizarPartidaConCopa(matchId, resultadosJugadores) {
+  async finalizarPartidaConCopa(matchId: string, resultadosJugadores: Record<string, any>) {
     try {
       // PASO 1: Procesar resultados (calcula puntos automáticamente)
       const { resultados, resumen } = this.procesarResultadosPartida(resultadosJugadores);
@@ -484,7 +484,7 @@ export const scoringService = {
 
         if (copaSnap.exists()) {
           const copa = copaSnap.data();
-          const partidasActualizadas = (copa.partidas || []).map(p =>
+          const partidasActualizadas = (copa.partidas || []).map((p: any) =>
             p.matchId === matchId ? { ...p, estado: 'cargada' } : p
           );
 
@@ -500,20 +500,20 @@ export const scoringService = {
       // PASO 5: Actualizar stats individuales de jugadores registrados
       try {
         const jugadoresConPlayerId = Object.entries(resultadosJugadores)
-          .filter(([_, datos]) => datos.playerId);
+          .filter(([_, datos]: [string, any]) => datos.playerId);
 
         if (jugadoresConPlayerId.length > 0) {
-          const resultadosPorPlayerId = {};
-          jugadoresConPlayerId.forEach(([_, datos]) => {
+          const resultadosPorPlayerId: Record<string, any> = {};
+          jugadoresConPlayerId.forEach(([_, datos]: [string, any]) => {
             const resultado = resultados[datos.playerId];
             if (resultado) resultadosPorPlayerId[datos.playerId] = resultado;
           });
 
           // Build alien maps from original match.jugadores (array before finalization)
-          const alienesPorPlayer = {};
+          const alienesPorPlayer: Record<string, any> = {};
           const matchJugadores = match.jugadores || [];
           if (Array.isArray(matchJugadores)) {
-            matchJugadores.forEach(j => {
+            matchJugadores.forEach((j: any) => {
               if (j.playerId && j.aliens?.length) alienesPorPlayer[j.playerId] = j.aliens;
             });
           }
@@ -522,14 +522,14 @@ export const scoringService = {
           const alienJugadoPorPlayer = match.alienesConfirmados || {};
 
           // Compute extraMeta for lastMatches subcollection
-          const participantes = Object.values(resultadosPorPlayerId).filter(r => r.participó !== false);
+          const participantes = Object.values(resultadosPorPlayerId).filter((r: any) => r.participó !== false);
           const cantJugadores = participantes.length;
-          const ganadores = participantes.filter(r => r.esGanador);
+          const ganadores = participantes.filter((r: any) => r.esGanador);
 
           // Match flags: notable events
-          const flags = [];
+          const flags: string[] = [];
           if (ganadores.length > 1) flags.push('shared_victory');
-          if (ganadores.some(r => (r.coloniasExternas || 0) === 0)) flags.push('zero_ce_winner');
+          if (ganadores.some((r: any) => (r.coloniasExternas || 0) === 0)) flags.push('zero_ce_winner');
 
           // Duration from match creation to now
           let duracionMinutos = null;

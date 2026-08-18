@@ -1,6 +1,38 @@
 import { create } from 'zustand'
 
-export const useStore = create((set) => ({
+// ponytail: campos en any hasta que existan modelos reales de Firestore
+// (partida, jugador, copa, liga). Lo que importa acá es que useStore
+// tenga forma fija para que TS la propague a quien lo consuma.
+interface StoreState {
+  codigoPartida: string | null;
+  codigoCorto: string | null;
+  aliensPartida: any[];
+  matchActual: any | null;
+  usuarioActual: any | null;
+  jugadores: any[];
+  copas: any[];
+  ligas: any[];
+  copaActual: any | null;
+  ligaActual: any | null;
+
+  setAliensPartida: (aliens: any[]) => void;
+  addAliensPartida: (newAliens: any[]) => void;
+  setCodigoPartida: (codigo: string | null) => void;
+  setCodigoCorto: (codigo: string | null) => void;
+  setMatchActual: (match: any) => void;
+  setUsuarioActual: (usuario: any) => void;
+  setJugadores: (jugadores: any[]) => void;
+  addJugador: (jugador: any) => void;
+  setCopas: (copas: any[]) => void;
+  setCopaActual: (copa: any) => void;
+  addCopa: (copa: any) => void;
+  setLigas: (ligas: any[]) => void;
+  setLigaActual: (liga: any) => void;
+  addLiga: (liga: any) => void;
+  reset: () => void;
+}
+
+export const useStore = create<StoreState>((set) => ({
   // Partidas
   codigoPartida: null,   // Firestore document ID (used in URLs)
   codigoCorto: null,     // Short human-readable code (6 chars, for display/entry)

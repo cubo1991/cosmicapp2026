@@ -13,15 +13,19 @@ import {
 
 const isDev = process.env.NODE_ENV === 'development';
 
+// Documento de Firestore sin modelar todavía: id + campos sueltos.
+// ponytail: any en los campos hasta que se definan modelos reales por colección.
+export type FirestoreDoc = { id: string } & Record<string, any>;
+
 /**
  * ✅ ALIENS - Lectura optimizada
  */
-export const getAliens = async () => {
+export const getAliens = async (): Promise<FirestoreDoc[]> => {
   try {
     const snapshot = await getDocs(collection(db, "alienList"));
     if (isDev) console.log(`✓ ${snapshot.size} aliens fetched`);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ Error fetching aliens:", error.message);
     throw new Error("No pudimos cargar los aliens");
   }
@@ -30,7 +34,7 @@ export const getAliens = async () => {
 /**
  * ✅ ALIEN POR ID - Optimizado con getDoc
  */
-export const getAlienById = async (id) => {
+export const getAlienById = async (id: string): Promise<FirestoreDoc | null> => {
   if (!id || typeof id !== 'string') {
     throw new Error("ID de alien inválido");
   }

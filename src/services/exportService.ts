@@ -107,7 +107,7 @@ export const exportService = {
         : 'N/A',
       p.estado || 'activa',
       Object.keys(p.jugadores || {}).length,
-      Object.values(p.jugadores || {}).filter(j => j.esGanador).length,
+      Object.values(p.jugadores || {}).filter((j: any) => j.esGanador).length,
       p.esManual ? 'Sí' : 'No',
       p.copId || '',
       p.ligaId || ''
@@ -199,7 +199,7 @@ export const exportService = {
         .sort((a, b) => {
           const fechaA = a.fechaCreacion?.toDate?.() || a.fechaCreacion || new Date(0);
           const fechaB = b.fechaCreacion?.toDate?.() || b.fechaCreacion || new Date(0);
-          return new Date(fechaB) - new Date(fechaA);
+          return new Date(fechaB).getTime() - new Date(fechaA).getTime();
         });
 
       const csv = this.generarCSVPartidas(partidasOrdenadas);

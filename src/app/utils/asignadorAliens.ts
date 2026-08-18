@@ -1,6 +1,5 @@
-const { getAliens } = require("@/firebase/db");
-
-const setAliensPartida = require("@/store/acciones").setAliensPartida;
+import { getAliens } from "@/firebase/db";
+import { setAliensPartida } from "@/store/acciones";
 
 const asignadorAliens = async (jugadores) => {
   let aliens = await getAliens()
