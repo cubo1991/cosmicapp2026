@@ -87,22 +87,28 @@ Copias de `estadisticas` para el botón de reset del admin. Fuera del alcance m�
 
 ## Identidad de jugador
 
-Hoy **no se guarda el `uid` de Firebase Auth en `players`**. La asociación se hace por `email` (`playerService.emailExists()`), y los jugadores históricos sembrados por `copaSeederService` existen solo con nombre.
+`players` tiene un campo **`uid`** (string, **opcional**) que ata un jugador a una cuenta de Firebase Auth. Los jugadores históricos —los sembrados por `copaSeederService`, que existen solo con nombre— no lo tienen, y son justamente los reclamables.
 
-Esto es justamente lo que resuelve la historia A2 del plan Android (vincular la cuenta de Google con el jugador histórico). La propuesta:
+Flujo de vinculación (historia A2 del plan Android):
 
-1. Agregar un campo `uid` (string, opcional) a `players`.
-2. En el primer login, listar los jugadores **sin `uid`** y dejar que la persona reclame el suyo.
-3. Al reclamar, escribir el `uid` en ese documento. No se crea ni se fusiona nada: el jugador histórico gana una cuenta.
+1. En el primer login, se listan los jugadores **sin `uid`**.
+2. La persona elige el suyo y se escribe el `uid` en ese documento.
+3. No se crea ni se fusiona nada: el jugador histórico gana una cuenta, y su historial de partidas, copas y estadísticas queda intacto.
 4. Un jugador con `uid` ya no aparece como reclamable.
 
-Es un cambio aditivo (campo opcional), así que no rompe la web. **Conviene implementarlo en la web también**, para que ambas plataformas usen el mismo criterio.
+**El invariante lo sostienen las reglas de Firestore, no la interfaz**, así que web y Android no pueden divergir de forma peligrosa: solo se puede reclamar un jugador sin `uid`, solo para uno mismo, nunca desde una sesión anónima, y sin tocar ningún otro campo en la misma escritura. Un `uid` ya asignado solo lo puede cambiar un admin, para deshacer una vinculación equivocada.
+
+Está verificado con ocho casos contra el emulador: `npm run test:rules`. Si tocás estas reglas, corré esa suite.
+
+> Ojo: la web sigue usando **sesión anónima** para todos los jugadores; el login con Google existe solo para `/admin`. Por eso la interfaz de vinculación vive por ahora solo en Android. El campo y las reglas ya son compartidos, así que si algún día la web suma login de jugadores, no hay que migrar nada.
+
+Aparte de esto, `playerService.emailExists()` sigue existiendo y se usa al crear jugadores desde el admin.
 
 ---
 
 ## Pendientes de definición
 
 - [ ] Normalizar `jugadores` a un solo formato (migración) — desbloquea el modelado limpio en Kotlin.
-- [ ] Agregar `uid` a `players` + flujo de reclamo, en web y Android.
+- [x] Agregar `uid` a `players` + flujo de reclamo (reglas y servicios compartidos; interfaz en Android).
 - [ ] Decidir si la lógica de scoring se mueve a Cloud Functions (ver §2.2 del plan) — de eso depende cuánto de este modelo necesita el cliente Android.
 - [ ] Tipar el dominio en el lado web a partir de este documento.
