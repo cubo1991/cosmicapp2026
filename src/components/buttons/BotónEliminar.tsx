@@ -10,7 +10,7 @@ export default function BotónEliminar({
   tipo = "jugador",
   id,
   nombre,
-  estadoPartida,   // only used when tipo === "partida"
+  estadoPartida = null,   // only used when tipo === "partida"
   onSuccess,
   className = "",
 }) {

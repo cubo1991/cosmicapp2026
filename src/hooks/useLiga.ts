@@ -7,8 +7,8 @@ import { ligaService } from '@/services/ligaService';
  * Hook para gestionar una liga específica
  */
 export function useLiga(ligaId) {
-  const [liga, setLiga] = useState(null);
-  const [ranking, setRanking] = useState({});
+  const [liga, setLiga] = useState<Record<string, any> | null>(null);
+  const [ranking, setRanking] = useState<Record<string, any>>({});
   const [partidas, setPartidas] = useState([]);
   const [loading, setLoading] = useState(!!ligaId);
   const [error, setError] = useState(null);

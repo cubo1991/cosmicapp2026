@@ -10,14 +10,14 @@ const FB = "var(--font-body, 'Exo 2', sans-serif)";
 const FM = "var(--font-mono, 'Space Mono', monospace)";
 
 // ── Live calculation helpers ──────────────────────────────────────
-function calcularTodosLosPuntos(puntos) {
-  const participantes = Object.values(puntos).filter(p => p.participó);
+function calcularTodosLosPuntos(puntos: Record<string, any>) {
+  const participantes = Object.values(puntos).filter((p: any) => p.participó);
   const nParticipantes = participantes.length;
-  const nGanadores = participantes.filter(p => p.ganador).length;
+  const nGanadores = participantes.filter((p: any) => p.ganador).length;
   const ptsVictoria = nGanadores > 0 ? nParticipantes / nGanadores : 0;
 
-  const resultado = {};
-  Object.entries(puntos).forEach(([id, datos]) => {
+  const resultado: Record<string, any> = {};
+  Object.entries(puntos).forEach(([id, datos]: [string, any]) => {
     if (!datos.participó) {
       resultado[id] = { colonias: 0, victoria: 0, total: 0 };
     } else {
@@ -34,8 +34,8 @@ function calcularTodosLosPuntos(puntos) {
 }
 
 export default function CargaPuntosForm({ matchId, copaId, posicion, onSuccess }) {
-  const [match,    setMatch]    = useState(null);
-  const [puntos,   setPuntos]   = useState({});
+  const [match,    setMatch]    = useState<Record<string, any> | null>(null);
+  const [puntos,   setPuntos]   = useState<Record<string, any>>({});
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -59,7 +59,7 @@ export default function CargaPuntosForm({ matchId, copaId, posicion, onSuccess }
               color:          j.color,
               datosExistentes: null,
             }))
-          : Object.entries(matchData.jugadores).map(([id, datos]) => ({
+          : Object.entries(matchData.jugadores).map(([id, datos]: [string, any]) => ({
               key:            id,
               playerId:       id,
               nombre:         datos.nombre,
@@ -337,7 +337,7 @@ export default function CargaPuntosForm({ matchId, copaId, posicion, onSuccess }
 }
 
 /* ── Player scoring card ─────────────────────────────────────────── */
-function PlayerScoringCard({ keyId, data, ptsCalc, onToggleParticipa, onToggleGanador, onChangeCI, onChangeCE }) {
+function PlayerScoringCard({ keyId, data, ptsCalc, disabled = false, onToggleParticipa, onToggleGanador, onChangeCI, onChangeCE }) {
   const total = data.participó ? (ptsCalc?.total ?? 0) : null;
 
   return (

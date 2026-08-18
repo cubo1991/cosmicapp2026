@@ -57,7 +57,7 @@ export const ligaService = {
   /**
    * Obtener todas las ligas
    */
-  async obtenerTodas() {
+  async obtenerTodas(): Promise<Record<string, any>[]> {
     try {
       const querySnapshot = await getDocs(collection(db, 'ligas'));
       return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -70,7 +70,7 @@ export const ligaService = {
   /**
    * Obtener liga por ID
    */
-  async obtenerPorId(ligaId) {
+  async obtenerPorId(ligaId): Promise<Record<string, any> | null> {
     try {
       const docRef = doc(db, 'ligas', ligaId);
       const docSnap = await getDoc(docRef);
@@ -204,7 +204,7 @@ export const ligaService = {
   /**
    * Suscribirse a cambios en tiempo real de una liga
    */
-  subscribeToLiga(ligaId, onData, onError) {
+  subscribeToLiga(ligaId, onData: (data: any) => void, onError) {
     try {
       return onSnapshot(
         doc(db, 'ligas', ligaId),

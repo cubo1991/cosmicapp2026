@@ -49,7 +49,7 @@ export const playerService = {
   /**
    * Obtener todos los jugadores
    */
-  async obtenerTodos() {
+  async obtenerTodos(): Promise<Record<string, any>[]> {
     try {
       const querySnapshot = await getDocs(collection(db, 'players'));
       return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -62,7 +62,7 @@ export const playerService = {
   /**
    * Obtener jugador por ID
    */
-  async obtenerPorId(playerId) {
+  async obtenerPorId(playerId): Promise<Record<string, any> | null> {
     try {
       const docRef = doc(db, 'players', playerId);
       const docSnap = await getDoc(docRef);
@@ -94,7 +94,7 @@ export const playerService = {
   /**
    * Suscribirse a cambios en tiempo real de un jugador
    */
-  subscribeToPlayer(playerId, onData, onError) {
+  subscribeToPlayer(playerId, onData: (data: any) => void, onError) {
     try {
       return onSnapshot(
         doc(db, 'players', playerId),
@@ -114,7 +114,7 @@ export const playerService = {
   /**
    * Suscribirse a todos los jugadores
    */
-  subscribeToAll(onData, onError) {
+  subscribeToAll(onData: (data: any[]) => void, onError) {
     try {
       return onSnapshot(
         collection(db, 'players'),

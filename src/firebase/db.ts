@@ -80,7 +80,7 @@ export const addAlien = async (alien) => {
  * ✅ OBTENER PARTIDA POR ID
  * Usado por JoinMatch.jsx (sistema antiguo de aliens)
  */
-export const getMatchById = async (matchId) => {
+export const getMatchById = async (matchId): Promise<FirestoreDoc | null> => {
   if (!matchId || typeof matchId !== 'string' || matchId.trim().length === 0) {
     throw new Error("ID de partida inválido");
   }

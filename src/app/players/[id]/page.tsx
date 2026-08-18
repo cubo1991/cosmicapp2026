@@ -77,7 +77,7 @@ function computePerfilEstelar(matches) {
 
 /* ── Rendimiento por tamaño ────────────────────────────────────────── */
 function computeRendimientoPorTamano(matches) {
-  const groups = {};
+  const groups: Record<string, any> = {};
   (matches || []).filter(m => m.participó !== false && m.cantJugadores >= 3).forEach(m => {
     const k = m.cantJugadores;
     if (!groups[k]) groups[k] = { total: 0, wins: 0, count: 0 };
@@ -98,7 +98,7 @@ function computeRendimientoPorTamano(matches) {
 
 /* ── Alien stats computation ───────────────────────────────────────── */
 function computeAlienStats(matches) {
-  const groups = {};
+  const groups: Record<string, any> = {};
   (matches || []).filter(m => m.participó !== false && m.alienJugado).forEach(m => {
     const k = m.alienJugado;
     if (!groups[k]) groups[k] = { total: 0, wins: 0, count: 0 };

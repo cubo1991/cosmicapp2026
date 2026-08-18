@@ -7,7 +7,7 @@ import { playerService } from '@/services/playerService';
  * Hook para gestionar jugadores
  */
 export function usePlayer(playerId = null) {
-  const [player, setPlayer] = useState(null);
+  const [player, setPlayer] = useState<Record<string, any> | null>(null);
   const [loading, setLoading] = useState(!!playerId);
   const [error, setError] = useState(null);
 

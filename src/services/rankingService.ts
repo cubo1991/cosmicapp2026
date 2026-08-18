@@ -156,7 +156,7 @@ export const rankingService = {
    * Obtener detalles de últimas 10 partidas de un jugador
    * Útil para ver el historial
    */
-  async obtenerUltimas10Partidas(playerId) {
+  async obtenerUltimas10Partidas(playerId): Promise<Record<string, any>[]> {
     try {
       const q = query(
         collection(db, 'players', playerId, 'lastMatches'),

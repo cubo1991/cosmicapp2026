@@ -7,8 +7,8 @@ import { copaService } from '@/services/copaService';
  * Hook para gestionar una copa específica
  */
 export function useCopa(copaId) {
-  const [copa, setCopa] = useState(null);
-  const [ranking, setRanking] = useState({});
+  const [copa, setCopa] = useState<Record<string, any> | null>(null);
+  const [ranking, setRanking] = useState<Record<string, any>>({});
   const [partidas, setPartidas] = useState([]);
   const [loading, setLoading] = useState(!!copaId);
   const [error, setError] = useState(null);

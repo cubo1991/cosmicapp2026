@@ -166,7 +166,7 @@ function StatusBadge({ estado }) {
   );
 }
 
-function MetaItem({ label, value, mono, color = '#f0e8d6' }) {
+function MetaItem({ label, value, mono = false, color = '#f0e8d6' }) {
   return (
     <div>
       <p style={{ fontFamily: FM, fontSize: '9px', letterSpacing: '0.15em', color: '#4a3a5a', marginBottom: '4px' }}>{label}</p>

@@ -39,7 +39,7 @@ export default function RecentMatches() {
         }
 
         // Ordenar por fecha descendente
-        todasLasPartidas.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+        todasLasPartidas.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
 
         // Tomar solo las últimas 50 partidas de todos los jugadores
         setDatos(todasLasPartidas.slice(0, 50));

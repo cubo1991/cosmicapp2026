@@ -16,13 +16,13 @@ const FB = "var(--font-body, 'Exo 2', sans-serif)";
 const FM = "var(--font-mono, 'Space Mono', monospace)";
 
 // ── Live points calculation ──────────────────────────────────────
-function calcularPreview(puntos) {
-  const participantes = Object.values(puntos).filter(p => p.participó);
+function calcularPreview(puntos: Record<string, any>) {
+  const participantes = Object.values(puntos).filter((p: any) => p.participó);
   const nP = participantes.length;
-  const nG = participantes.filter(p => p.ganador).length;
+  const nG = participantes.filter((p: any) => p.ganador).length;
   const ptsV = nG > 0 ? nP / nG : 0;
-  const resultado = {};
-  Object.entries(puntos).forEach(([k, d]) => {
+  const resultado: Record<string, any> = {};
+  Object.entries(puntos).forEach(([k, d]: [string, any]) => {
     const colonias = (d.CI || 0) + (d.CE || 0) * 2;
     const victoria = d.participó && d.ganador ? ptsV : 0;
     resultado[k] = { total: parseFloat((colonias + victoria).toFixed(2)) };
@@ -60,7 +60,7 @@ const JoinMatch = ({ matchId }) => {
   const [loading,            setLoading]            = useState(true);
   const [error,              setError]              = useState(null);
   const [revealedPlayers,    setRevealedPlayers]    = useState({});
-  const [puntos,             setPuntos]             = useState({});
+  const [puntos,             setPuntos]             = useState<Record<string, any>>({});
   const [guardando,          setGuardando]          = useState(false);
   const [step,               setStep]               = useState("view"); // 'view'|'form'|'confirm'|'success'|'copa-ceremony'
   const [mensajeExito,       setMensajeExito]       = useState(null);
@@ -240,10 +240,10 @@ const JoinMatch = ({ matchId }) => {
           const copaSnap = await getDoc(firestoreDoc(firestoreDb, 'copas', matchFresh.copId));
           if (copaSnap.exists() && copaSnap.data().estado === 'finalizada') {
             const copaData = copaSnap.data();
-            const podio = Object.entries(copaData.ranking || {})
-              .sort((a, b) => (b[1].puntosTotales || 0) - (a[1].puntosTotales || 0))
+            const podio: Record<string, any>[] = Object.entries(copaData.ranking || {})
+              .sort((a: [string, any], b: [string, any]) => (b[1].puntosTotales || 0) - (a[1].puntosTotales || 0))
               .slice(0, 3)
-              .map(([pid, d], idx) => ({ pos: idx + 1, nombre: d.nombreJugador, puntos: d.puntosTotales }));
+              .map(([pid, d]: [string, any], idx) => ({ pos: idx + 1, nombre: d.nombreJugador, puntos: d.puntosTotales }));
             setCopaFinalizada({ nombre: copaData.nombre, podio });
             setMatch(matchFresh);
             setStep("copa-ceremony");

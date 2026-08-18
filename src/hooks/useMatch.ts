@@ -12,7 +12,7 @@ import { rankingService } from '@/services/rankingService';
  * Hook para gestionar una partida específica
  */
 export function useMatch(matchId) {
-  const [match, setMatch] = useState(null);
+  const [match, setMatch] = useState<Record<string, any> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 

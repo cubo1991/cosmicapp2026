@@ -65,7 +65,7 @@ export default function CargarPartida() {
                                 }}
                                 placeholder="Ej: ABC123"
                                 className="w-full px-4 py-3 border-2 border-white/20 bg-white/5 text-white rounded-lg focus:outline-none focus:border-purple-500 focus:bg-white/10 transition-all placeholder-gray-400 uppercase"
-                                maxLength="20"
+                                maxLength={20}
                                 autoComplete="off"
                             />
                         </div>

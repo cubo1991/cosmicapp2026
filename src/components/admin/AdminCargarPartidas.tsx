@@ -473,7 +473,7 @@ Partida 2,2026-04-21,user_003,Carlos Díaz,9.3,true`;
       <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 text-sm text-blue-300">
         <p>
           💡 <strong>Nota:</strong> Las partidas cargadas se marcarán como
-          "manuales" y se registrarán automáticamente en el ranking global. Los
+          &quot;manuales&quot; y se registrarán automáticamente en el ranking global. Los
           puntos se sumarán a las estadísticas del jugador.
         </p>
       </div>

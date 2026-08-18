@@ -6,7 +6,7 @@ import { playerService } from "@/services/playerService";
 
 export default function CargaResultados({ matchId, onSuccess }) {
   const { match, finalizarPartida, loading, error } = useMatch(matchId);
-  const [resultados, setResultados] = useState({});
+  const [resultados, setResultados] = useState<Record<string, any>>({});
   const [jugadoresInfo, setJugadoresInfo] = useState({});
   const [mensajeError, setMensajeError] = useState("");
   const [cargandoJugadores, setCargandoJugadores] = useState(true);

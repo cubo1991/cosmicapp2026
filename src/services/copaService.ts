@@ -52,7 +52,7 @@ export const copaService = {
   /**
    * Obtener todas las copas
    */
-  async obtenerTodas() {
+  async obtenerTodas(): Promise<Record<string, any>[]> {
     try {
       const querySnapshot = await getDocs(collection(db, 'copas'));
       return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -65,7 +65,7 @@ export const copaService = {
   /**
    * Obtener copa por ID
    */
-  async obtenerPorId(copaId) {
+  async obtenerPorId(copaId): Promise<Record<string, any> | null> {
     try {
       const docRef = doc(db, 'copas', copaId);
       const docSnap = await getDoc(docRef);
@@ -83,7 +83,7 @@ export const copaService = {
   /**
    * Obtener copas activas
    */
-  async obtenerActivas() {
+  async obtenerActivas(): Promise<Record<string, any>[]> {
     try {
       const q = query(collection(db, 'copas'), where('estado', '==', 'activa'));
       const querySnapshot = await getDocs(q);
@@ -216,7 +216,7 @@ export const copaService = {
   /**
    * Suscribirse a cambios en tiempo real de una copa
    */
-  subscribeToCoupa(copaId, onData, onError) {
+  subscribeToCoupa(copaId, onData: (data: any) => void, onError) {
     try {
       return onSnapshot(
         doc(db, 'copas', copaId),
