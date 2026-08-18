@@ -30,6 +30,34 @@ data class Jugador(
     val copas: Long get() = estadisticas["copas"] ?: 0
 }
 
+/** Un puesto en la tabla de una copa o del ranking global. */
+data class Puesto(val nombre: String, val puntos: Double)
+
+/**
+ * Una copa: un ciclo de 10 partidas. El `ranking` viene embebido en el documento
+ * como un mapa playerId -> { nombreJugador, puntosTotales, ... }.
+ */
+data class Copa(
+    val id: String,
+    val nombre: String,
+    val estado: String,
+    val partidasJugadas: Int,
+    val tabla: List<Puesto>,
+    val ganador: String? = null
+) {
+    val esActiva: Boolean get() = estado == "activa"
+}
+
+data class Partida(
+    val id: String,
+    val nombre: String,
+    val estado: String,
+    val cantidadJugadores: Int,
+    val fecha: java.util.Date? = null
+) {
+    val finalizada: Boolean get() = estado == "finalizada"
+}
+
 object CosmicRepository {
 
     private val auth: FirebaseAuth get() = FirebaseAuth.getInstance()
@@ -97,6 +125,40 @@ object CosmicRepository {
         db.collection("players").document(jugadorId).update("uid", uid).await()
     }
 
+    /**
+     * La copa en curso. Puede no haber ninguna si todavia no se jugo nada.
+     *
+     * ponytail: lectura puntual, no listener. Si en la mesa se quiere ver el
+     * ranking moverse en vivo, cambiar por addSnapshotListener.
+     */
+    suspend fun copaActiva(): Copa? =
+        db.collection("copas").whereEqualTo("estado", "activa").get().await()
+            .documents.firstOrNull()?.aCopa()
+
+    /** Copas ya cerradas, de la mas reciente a la mas vieja. */
+    suspend fun copasCerradas(): List<Copa> =
+        db.collection("copas").whereEqualTo("estado", "finalizada").get().await()
+            .documents.map { it.aCopa() }
+            .sortedByDescending { it.nombre }
+
+    /**
+     * Ranking global: suma de las ultimas 10 partidas de cada jugador. El valor
+     * lo mantiene la web en el campo last10Score al finalizar cada partida.
+     */
+    suspend fun rankingGlobal(): List<Puesto> =
+        db.collection("players").get().await()
+            .documents
+            .map { Puesto(it.getString("name") ?: "?", it.getDouble("last10Score") ?: 0.0) }
+            .filter { it.puntos > 0 }
+            .sortedByDescending { it.puntos }
+
+    /** Ultimas partidas, para el historial. */
+    suspend fun partidasRecientes(cuantas: Long = 25): List<Partida> =
+        db.collection("matches")
+            .orderBy("fechaCreacion", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(cuantas).get().await()
+            .documents.map { it.aPartida() }
+
     /** Alta de alguien que no estaba en la liga. */
     suspend fun crearJugador(nombre: String, email: String, uid: String): Jugador {
         val nuevo = mapOf(
@@ -114,6 +176,45 @@ object CosmicRepository {
         val ref = db.collection("players").add(nuevo).await()
         return Jugador(id = ref.id, nombre = nombre, uid = uid)
     }
+}
+
+private fun com.google.firebase.firestore.DocumentSnapshot.aCopa(): Copa {
+    @Suppress("UNCHECKED_CAST")
+    val ranking = get("ranking") as? Map<String, Map<String, Any?>> ?: emptyMap()
+    return Copa(
+        id = id,
+        nombre = getString("nombre") ?: "Copa",
+        estado = getString("estado") ?: "?",
+        // El campo `partidas` es la lista de partidas asociadas; su largo es
+        // cuantas van de las 10 del ciclo.
+        partidasJugadas = (get("partidas") as? List<*>)?.size ?: 0,
+        tabla = ranking.values
+            .map {
+                Puesto(
+                    nombre = it["nombreJugador"] as? String ?: "?",
+                    puntos = (it["puntosTotales"] as? Number)?.toDouble() ?: 0.0
+                )
+            }
+            .sortedByDescending { it.puntos },
+        ganador = getString("ganador")
+    )
+}
+
+private fun com.google.firebase.firestore.DocumentSnapshot.aPartida(): Partida {
+    // Ojo: `jugadores` convive en dos formatos, mapa nuevo y lista legacy.
+    // Ver docs/MODELO_DATOS.md; hasta que se normalice hay que aceptar los dos.
+    val jugadores = get("jugadores")
+    return Partida(
+        id = id,
+        nombre = getString("nombre") ?: getString("codigo") ?: "Partida",
+        estado = getString("estado") ?: "?",
+        cantidadJugadores = when (jugadores) {
+            is List<*> -> jugadores.size
+            is Map<*, *> -> jugadores.size
+            else -> 0
+        },
+        fecha = getTimestamp("fechaCreacion")?.toDate()
+    )
 }
 
 private fun com.google.firebase.firestore.DocumentSnapshot.aJugador(): Jugador {
