@@ -12,6 +12,7 @@ import AdminEstadisticasLCE from '@/components/admin/AdminEstadisticasLCE';
 import AdminSeedCopaHistorica from '@/components/admin/AdminSeedCopaHistorica';
 import AdminCEIndex from '@/components/admin/AdminCEIndex';
 import OrganizerPanel from '@/components/admin/OrganizerPanel';
+import { AdminProtection } from '@/components/admin/AdminProtection';
 
 const FD = "var(--font-display, 'Bebas Neue', Impact, sans-serif)";
 const FB = "var(--font-body, 'Exo 2', sans-serif)";
@@ -35,6 +36,7 @@ export default function AdminPage() {
   ];
 
   return (
+    <AdminProtection>
     <div style={{ minHeight: '100vh', background: '#09060f' }}>
       {/* Header */}
       <div style={{
@@ -113,6 +115,7 @@ export default function AdminPage() {
         </div>
       </div>
     </div>
+    </AdminProtection>
   );
 }
 

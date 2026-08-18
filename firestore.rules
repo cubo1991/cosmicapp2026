@@ -3,23 +3,33 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Función auxiliar: verificar si el usuario es admin
+    // Función auxiliar: verificar si el usuario es admin.
+    // Admin = tiene un doc en /admins con su uid como ID (ver más abajo).
+    // No usamos custom claims porque requerirían Cloud Functions con
+    // Admin SDK para setearlos; un doc de Firestore alcanza para este caso.
     function isAdmin() {
-      return request.auth.token.admin == true;
+      return request.auth.uid != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
-    
-    // Función auxiliar: verificar si es el dueño del documento
-    function isOwner(uid) {
-      return request.auth.uid == uid;
+
+    // ============ ADMINS ============
+    // Cada admin puede leer su propio doc (para que el cliente sepa si lo es).
+    // Nadie puede crear/borrar admins desde el cliente: se hace a mano
+    // desde la consola de Firebase.
+    match /admins/{uid} {
+      allow read: if request.auth.uid == uid;
+      allow write: if false;
     }
-    
+
     // ============ JUGADORES ============
+    // Nota: "jugadores" son perfiles de torneo gestionados por quien organiza,
+    // no cuentas 1:1 con el uid de quien los crea. El doc ID es autogenerado.
     match /players/{userId} {
       // Leer: todos los usuarios autenticados
       allow read: if request.auth.uid != null;
-      
-      // Crear: solo si el UID coincide con el del documento
-      allow create: if request.auth.uid == userId &&
+
+      // Crear: cualquier usuario autenticado, con nombre y email
+      allow create: if request.auth.uid != null &&
                       request.resource.data.name != null &&
                       request.resource.data.email != null;
       
@@ -88,13 +98,15 @@ service cloud.firestore {
       allow create: if request.auth.uid != null &&
                        request.resource.data.nombre != null;
       
-      // Actualizar: el creador o admin
-      allow update: if request.auth.uid == resource.data.creador ||
-                       isAdmin();
-      
-      // Borrar: solo el creador o admin, si aún está en planificación
-      allow delete: if (request.auth.uid == resource.data.creador || isAdmin()) &&
-                       resource.data.estado == 'planificada';
+      // Actualizar: cualquier usuario autenticado (rankings se actualizan via Cloud Functions)
+      // Nota: "creador" guarda un playerId (perfil de torneo), no un uid de
+      // Auth, así que no se puede comparar contra request.auth.uid.
+      allow update: if request.auth.uid != null;
+
+      // Borrar: solo admin, o cualquier autenticado si aún está en planificación
+      allow delete: if isAdmin() ||
+                       (request.auth.uid != null &&
+                        resource.data.estado == 'planificada');
     }
     
     // ============ SNAPSHOTS ============

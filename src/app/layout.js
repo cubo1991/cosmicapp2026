@@ -2,6 +2,7 @@ import { Bebas_Neue, Exo_2, Space_Mono } from "next/font/google";
 import "./globals.css";
 import NavBar from "./components/NavBar";
 import NebulaBackground from "@/components/NebulaBackground";
+import AuthBootstrap from "@/components/AuthBootstrap";
 
 const bebasNeue = Bebas_Neue({
   weight: "400",
@@ -34,6 +35,7 @@ export default function RootLayout({ children }) {
       <body
         className={`${bebasNeue.variable} ${exo2.variable} ${spaceMono.variable} antialiased`}
       >
+        <AuthBootstrap />
         <NebulaBackground />
         <NavBar />
         <div style={{ position: "relative", zIndex: 1 }}>{children}</div>
