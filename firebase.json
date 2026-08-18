@@ -1,7 +1,4 @@
 {
-  "projects": {
-    "default": "cosmicapp2026"
-  },
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"

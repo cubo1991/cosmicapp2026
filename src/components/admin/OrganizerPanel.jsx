@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { activeCopaService } from '@/services/activeCopaService';
-import { collection, getDocs, query, where, limit } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy, limit } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 
 const FD = "var(--font-display, 'Bebas Neue', Impact, sans-serif)";
@@ -24,31 +24,27 @@ export default function OrganizerPanel() {
         const info = await activeCopaService.obtenerInfoCopaActiva();
         setCopaInfo(info);
 
-        // Últimas 3 partidas finalizadas — sort client-side to avoid composite index
+        // Últimas 3 partidas finalizadas, ordenadas por Firestore (requiere
+        // el índice compuesto estado+fechaFinalizacion en firestore.indexes.json)
         const finalizadasQ = query(
           collection(db, 'matches'),
           where('estado', '==', 'finalizada'),
-          limit(30)
+          orderBy('fechaFinalizacion', 'desc'),
+          limit(3)
         );
         const finalizadasSnap = await getDocs(finalizadasQ);
-        const finalizadas = finalizadasSnap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (b.fechaFinalizacion?.seconds || 0) - (a.fechaFinalizacion?.seconds || 0))
-          .slice(0, 3);
-        setRecentMatches(finalizadas);
+        setRecentMatches(finalizadasSnap.docs.map(d => ({ id: d.id, ...d.data() })));
 
-        // Partidas activas pendientes de scoring — sort client-side
+        // Partidas activas pendientes de scoring, más nuevas primero
+        // (requiere el índice compuesto estado+fechaCreacion)
         const activasQ = query(
           collection(db, 'matches'),
           where('estado', '==', 'activa'),
-          limit(30)
+          orderBy('fechaCreacion', 'desc'),
+          limit(5)
         );
         const activasSnap = await getDocs(activasQ);
-        const activas = activasSnap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (b.fechaCreacion?.seconds || 0) - (a.fechaCreacion?.seconds || 0))
-          .slice(0, 5);
-        setPendingMatches(activas);
+        setPendingMatches(activasSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error(err);
         setError(err.message);
