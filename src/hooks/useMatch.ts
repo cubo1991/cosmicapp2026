@@ -17,17 +17,20 @@ export function useMatch(matchId) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!matchId) {
-      setLoading(false);
-      return;
-    }
-    
+    let cancelled = false;
+
     const obtenerMatch = async () => {
+      if (!matchId) {
+        if (!cancelled) setLoading(false);
+        return;
+      }
+
       try {
         setError(null);
         const docRef = doc(db, 'matches', matchId);
         const docSnap = await getDoc(docRef);
-        
+        if (cancelled) return;
+
         if (docSnap.exists()) {
           setMatch({ id: docSnap.id, ...docSnap.data() });
         } else {
@@ -35,12 +38,17 @@ export function useMatch(matchId) {
         }
         setLoading(false);
       } catch (err) {
+        if (cancelled) return;
         setError(err.message);
         setLoading(false);
       }
     };
-    
+
     obtenerMatch();
+
+    return () => {
+      cancelled = true;
+    };
   }, [matchId]);
 
   const finalizarPartida = useCallback(async (resultados) => {
@@ -74,11 +82,7 @@ export function useMatch(matchId) {
       // Actualizar estadísticas de jugadores (solo los que participaron)
       for (const [playerId, datos] of Object.entries(jugadoresConPuntos)) {
         if (datos.participó) {
-          await scoringService.actualizarEstadisticasJugador(
-            playerId, 
-            datos.puntos.total, 
-            datos.esGanador
-          );
+          await scoringService.actualizarEstadisticasJugador(playerId, datos);
         }
       }
 

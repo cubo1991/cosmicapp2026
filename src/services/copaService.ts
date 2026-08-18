@@ -100,7 +100,7 @@ export const copaService = {
    * - Asigna automáticamente la posición
    * - Requiere fecha de juego
    */
-  async agregarPartida(copaId, matchId, fechaJuego) {
+  async agregarPartida(copaId: string, matchId: string, fechaJuego: string | Date | null = null) {
     try {
       const copaRef = doc(db, 'copas', copaId);
       const copaSnap = await getDoc(copaRef);
