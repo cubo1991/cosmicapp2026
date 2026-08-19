@@ -1,6 +1,6 @@
 # 📱 Plan: App Nativa Android — CosmicApp 2026
 
-**Estado**: Planificación (sin código)
+**Estado**: Etapas 0–3 implementadas (ver §5)
 **Fecha**: Agosto 2026
 **Alcance**: Android primero. iOS se evalúa al cierre de la Etapa 3.
 
@@ -125,21 +125,28 @@ Prioridad: **[M]** must / **[S]** should / **[C]** could. Agrupadas por épica.
 
 Cada etapa termina con un entregable usable e instalable (APK por Firebase App Distribution para el grupo de la liga; Play Store recién en Etapa 4).
 
-### Etapa 0 — Fundaciones (la más corta)
+> **Estado al 18/08/2026**: etapas 0 a 3 implementadas. Falta **compartir el código**
+> de la partida (lo único pendiente de la Etapa 2) y, sobre todo, **cumplir el
+> criterio de salida de la Etapa 3**: que una copa entera pase por la app. Eso no
+> es trabajo de código, es jugar. La decisión sobre iOS está habilitada.
+>
+> Se implementó **sin Hilt**: con un repositorio y dos ViewModels no pagaba su costo.
+
+### Etapa 0 — Fundaciones ✅
 Proyecto Android, Hilt, navegación, tema visual (trasladar la identidad cósmica de la web), conexión a Firebase, login con Google (A1, A4), auditoría de `firestore.rules`.
 Onboarding de vinculación (A2, A2b): al primer login, la app lista los jugadores existentes sin cuenta asociada y pregunta "¿alguno sos vos?". Si elige uno, se guarda el `uid` de Google en ese documento de `players` (es una **vinculación**, no una fusión de documentos: el jugador histórico gana una cuenta, no se crea nada). Si es nuevo, alta normal. Diseñar este flujo junto con la web para que ambas usen el mismo criterio de asociación.
 **Criterio de salida**: me logueo, elijo mi jugador histórico y veo mis estadísticas reales.
 
-### Etapa 1 — Solo lectura (el visor de la liga)
+### Etapa 1 — Solo lectura (el visor de la liga) ✅
 Copa activa con ranking en tiempo real (C1), ranking global (D1), historial de partidas (B4), historial de copas (C2), perfil propio (A3).
 **Criterio de salida**: cualquier jugador de la LCE puede seguir la liga desde el celular sin tocar la web. *Esta etapa ya entrega valor real y es puro Firestore-read: riesgo mínimo.*
 
-### Etapa 2 — Partidas en la mesa
+### Etapa 2 — Partidas en la mesa ⚠️ (falta compartir el código)
 Crear partida + compartir código (B3), unirse con código (B1), sala de partida en tiempo real (B2), lista de aliens (E1), alien aleatorio (E2).
 **Criterio de salida**: una partida real de la liga se organiza íntegramente desde celulares.
 
-### Etapa 3 — Escritura crítica
-**Prerrequisito recomendado**: migrar finalización de partida a Cloud Functions (ver §2.2).
+### Etapa 3 — Escritura crítica ⚠️ (código listo; falta la copa real)
+**Prerrequisito**: migrar a Cloud Functions (§2.2). **Hecho**: `finalizarPartida` y `crearPartida` concentran cálculo de puntos, ranking de copa, cierre del ciclo de 10 y estadísticas. Web y Android llaman a las mismas.
 Carga de resultados y finalización (B5), con lo que se dispara todo el ciclo: puntos, copa, estadísticas, cierre de copa a las 10 partidas. Rol admin en la app (F1).
 **Criterio de salida**: una copa completa (10 partidas) transcurre sin abrir la web, y los datos quedan idénticos a como los hubiera dejado la web.
 **Hito de decisión iOS**: acá se evalúa iPhone con datos de uso reales.

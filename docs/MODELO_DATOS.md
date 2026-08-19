@@ -111,5 +111,6 @@ Aparte de esto, `playerService.emailExists()` sigue existiendo y se usa al crear
 
 - [ ] Normalizar `jugadores` a un solo formato (migración) — desbloquea el modelado limpio en Kotlin.
 - [x] Agregar `uid` a `players` + flujo de reclamo (reglas y servicios compartidos; interfaz en Android).
-- [ ] Decidir si la lógica de scoring se mueve a Cloud Functions (ver §2.2 del plan) — de eso depende cuánto de este modelo necesita el cliente Android.
+- [x] Mover la lógica de scoring y el ciclo de copas a Cloud Functions (`finalizarPartida`, `crearPartida`). Ningún cliente calcula puntos ni toca copas.
+- [ ] Cerrar las reglas de `matches` y `copas` ahora que los clientes no necesitan escribirlas: hoy el camino único es por convención, no por candado. Requiere auditar qué escrituras directas quedan en el admin (borrado, carga masiva, semillas).
 - [ ] Tipar el dominio en el lado web a partir de este documento.
