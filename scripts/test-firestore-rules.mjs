@@ -54,6 +54,20 @@ async function sembrar() {
     // Un admin de verdad: su doc solo se crea a mano desde la consola.
     await setDoc(doc(db, `admins/${UID_ADMIN}`), { alta: true });
     await setDoc(doc(db, 'alienList/zombie'), { Nombre: 'Zombie' });
+
+    // Una partida en curso y una copa activa, para probar los campos de resultado.
+    await setDoc(doc(db, 'matches/partida'), {
+      nombre: 'Partida de prueba',
+      estado: 'activa',
+      jugadores: {},
+      alienesConfirmados: {},
+    });
+    await setDoc(doc(db, 'copas/copa'), {
+      nombre: 'Copa de prueba',
+      estado: 'activa',
+      partidas: [],
+      ranking: {},
+    });
   });
 }
 
@@ -99,8 +113,8 @@ const casos = [
   {
     // El calculo de puntos actualiza stats de todos los jugadores de la partida,
     // no solo del propio: esto tiene que seguir funcionando.
-    nombre: 'las escrituras normales de stats siguen permitidas',
-    esperado: 'permitido',
+    nombre: 'una sesion anonima ya no puede tocar estadisticas de nadie',
+    esperado: 'denegado',
     accion: () =>
       updateDoc(doc(anonimo(), 'players/reclamado'), { 'estadisticas.jugadas': 366 }),
   },
@@ -115,6 +129,72 @@ const casos = [
     nombre: 'nadie que no sea admin puede escribir el catalogo de aliens',
     esperado: 'denegado',
     accion: () => setDoc(doc(conGoogle(), 'alienList/inventado'), { Nombre: 'Falso' }),
+  },
+
+  // ---- Campos de resultado: solo los escribe la Cloud Function ----
+  {
+    nombre: 'nadie puede inventarse los puntos de una partida',
+    esperado: 'denegado',
+    accion: () => updateDoc(doc(conGoogle(), 'matches/partida'), {
+      jugadores: { [UID_GOOGLE]: { puntos: { total: 9999 } } },
+    }),
+  },
+  {
+    nombre: 'nadie puede reescribir el ranking de una copa',
+    esperado: 'denegado',
+    accion: () => updateDoc(doc(anonimo(), 'copas/copa'), {
+      ranking: { [UID_GOOGLE]: { puntosTotales: 9999 } },
+    }),
+  },
+  {
+    nombre: 'nadie puede adjudicarse una copa',
+    esperado: 'denegado',
+    accion: () => updateDoc(doc(conGoogle(), 'copas/copa'), {
+      ganador: { nombre: 'Yo', puntosTotales: 1 },
+    }),
+  },
+  {
+    nombre: 'nadie puede tocar sus stats ni su puntaje del ranking global',
+    esperado: 'denegado',
+    accion: () => updateDoc(doc(conGoogle(), 'players/historico'), { last10Score: 9999 }),
+  },
+  {
+    // Los flujos que siguen vivos en la web tienen que seguir andando: agregar
+    // una partida al ciclo de la copa no toca el ranking.
+    nombre: 'agregar una partida al ciclo de la copa sigue permitido',
+    esperado: 'permitido',
+    accion: () => updateDoc(doc(anonimo(), 'copas/copa'), {
+      partidas: [{ posicion: 1, matchId: 'x', estado: 'pendiente' }],
+    }),
+  },
+  {
+    nombre: 'marcar el alien elegido en una partida sigue permitido',
+    esperado: 'permitido',
+    accion: () => updateDoc(doc(anonimo(), 'matches/partida'), {
+      'alienesConfirmados.jugador1': 'alien-7',
+    }),
+  },
+  {
+    nombre: 'un jugador comun no puede inflarse las estadisticas historicas',
+    esperado: 'denegado',
+    accion: () => updateDoc(doc(conGoogle(), 'players/historico'), {
+      'estadisticas.copas': 99,
+    }),
+  },
+  {
+    // El panel admin edita a mano victorias especiales, campañas y pijones.
+    nombre: 'un admin si puede editar estadisticas historicas',
+    esperado: 'permitido',
+    accion: () => updateDoc(doc(conGoogle(UID_ADMIN), 'players/historico'), {
+      'estadisticas.victoriasEspeciales': 8,
+    }),
+  },
+  {
+    nombre: 'un admin si puede corregir los puntos de una partida',
+    esperado: 'permitido',
+    accion: () => updateDoc(doc(conGoogle(UID_ADMIN), 'matches/partida'), {
+      resumen: { totalParticipantes: 3 },
+    }),
   },
 ];
 

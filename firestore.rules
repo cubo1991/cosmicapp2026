@@ -12,6 +12,19 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    // ============ CAMPOS DE RESULTADO ============
+    // Estos campos los escribe SOLO la Cloud Function (finalizarPartida y
+    // crearPartida), que usa el Admin SDK y no pasa por estas reglas. Bloquearlos
+    // acá impide que alguien con la clave pública de la app —que viaja en el
+    // bundle y en el APK, o sea, cualquiera— se invente sus propios puntos
+    // escribiendo directo en Firestore.
+    //
+    // Los admins conservan el permiso: ya tienen esa potestad por otras vías y
+    // algunos flujos del panel todavía los tocan.
+    function noTocaCampos(campos) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(campos);
+    }
+
     // ============ ADMINS ============
     // Cada admin puede leer su propio doc (para que el cliente sepa si lo es).
     // Nadie puede crear/borrar admins desde el cliente: se hace a mano
@@ -62,8 +75,15 @@ service cloud.firestore {
       // Actualizar: escrituras normales del sistema, o un reclamo de vinculación.
       // Un `uid` ya asignado solo lo puede cambiar un admin (para deshacer una
       // vinculación equivocada).
+      // Las estadisticas historicas de la LCE tambien quedan cerradas: las
+      // escribe la Cloud Function al finalizar una partida, y el panel admin a
+      // mano para las que no salen de ninguna (victorias especiales, campañas,
+      // pijones). Un jugador comun nunca necesita tocarlas, y si pudiera se
+      // inflaria las copas ganadas.
       allow update: if request.auth.uid != null &&
-                       (noTocaUid() || esReclamoValido() || isAdmin());
+                       (noTocaUid() || esReclamoValido() || isAdmin()) &&
+                       (noTocaCampos(['stats', 'estadisticas', 'last10Score', 'last3Score'])
+                        || isAdmin());
 
       // Borrar: solo admin
       allow delete: if isAdmin();
@@ -91,10 +111,12 @@ service cloud.firestore {
                        request.resource.data.nombre != null &&
                        request.resource.data.jugadores != null;
       
-      // Actualizar: solo si la partida no está finalizada, o es admin
+      // Actualizar: solo si la partida no está finalizada, o es admin.
+      // Además, los puntos cargados (`jugadores`, `resumen`) y la auditoría solo
+      // los escribe la Cloud Function: si no, cualquiera se inventa su puntaje.
       allow update: if request.auth.uid != null &&
-                       (request.resource.data.estado == 'activa' ||
-                        isAdmin());
+                       (request.resource.data.estado == 'activa' || isAdmin()) &&
+                       (noTocaCampos(['jugadores', 'resumen', 'auditoria']) || isAdmin());
       
       // Borrar: solo admin
       allow delete: if isAdmin();
@@ -109,8 +131,11 @@ service cloud.firestore {
       allow create: if request.auth.uid != null &&
                        request.resource.data.nombre != null;
       
-      // Actualizar: cualquier usuario autenticado (rankings se actualizan via Cloud Functions)
-      allow update: if request.auth.uid != null;
+      // Actualizar: la tabla de la copa y su ganador los escribe solo la Cloud
+      // Function. Agregar una partida al ciclo (`partidas`) sigue abierto,
+      // porque todavía hay flujos de la web que lo hacen.
+      allow update: if request.auth.uid != null &&
+                       (noTocaCampos(['ranking', 'ganador']) || isAdmin());
       
       // Borrar: solo admin o si aún está en planificación
       allow delete: if isAdmin() ||

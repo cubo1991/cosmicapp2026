@@ -10,6 +10,7 @@
  * ponytail: script pelado con assert, igual que test-firestore-rules.mjs.
  */
 import assert from 'node:assert/strict';
+import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously, connectAuthEmulator } from 'firebase/auth';
 import {
@@ -27,6 +28,18 @@ connectFunctionsEmulator(functions, '127.0.0.1', 5001);
 
 await signInAnonymously(auth);
 const finalizarPartida = httpsCallable(functions, 'finalizarPartida');
+
+/**
+ * La siembra escribe por encima de las reglas a proposito: esta suite prueba la
+ * Cloud Function, no los permisos. Las reglas ya no dejan que un cliente
+ * reescriba los resultados de una partida —que es justo lo que se busca, y lo
+ * cubre test-firestore-rules.mjs—, asi que sembrar como cliente fallaria.
+ */
+const entornoSinReglas = await initializeTestEnvironment({
+  projectId: 'cosmic-selector',
+  firestore: { rules: 'service cloud.firestore { match /databases/{d}/documents { match /{p=**} { allow read, write: if true; } } }', host: '127.0.0.1', port: 8080 },
+});
+const sinReglas = (fn) => entornoSinReglas.withSecurityRulesDisabled((ctx) => fn(ctx.firestore()));
 const crearPartida = httpsCallable(functions, 'crearPartida');
 
 const ANA = 'jugador-ana';
@@ -35,6 +48,7 @@ const CACHO = 'jugador-cacho';
 
 /** Deja la base con una copa activa y una partida en la posicion indicada. */
 async function sembrar({ posicion, partidasPrevias = [] }) {
+  await sinReglas(async (db) => {
   for (const [id, nombre] of [[ANA, 'Ana'], [BETO, 'Beto'], [CACHO, 'Cacho']]) {
     await setDoc(doc(db, 'players', id), {
       name: nombre,
@@ -65,7 +79,8 @@ async function sembrar({ posicion, partidasPrevias = [] }) {
     asociarACopa: true,
     sessionId: 'ses-test',
     fechaCreacion: new Date(Date.now() - 90 * 60 * 1000), // 90 minutos atras
-    jugadores: [],
+      jugadores: [],
+    });
   });
 }
 
@@ -201,10 +216,10 @@ prueba('rechaza una partida sin ganador', async () => {
 
 prueba('no toca la copa si la partida es de visitantes', async () => {
   await sembrar({ posicion: 1 });
-  await setDoc(doc(db, 'matches', 'partida-test'), {
+  await sinReglas((db) => setDoc(doc(db, 'matches', 'partida-test'), {
     nombre: 'Con visitantes', estado: 'activa', copId: 'copa-test', posicion: 1,
     asociarACopa: false, fechaCreacion: new Date(), jugadores: [],
-  });
+  }));
   await finalizarPartida({
     matchId: 'partida-test',
     resultados: {
@@ -258,7 +273,7 @@ prueba('una partida sin copa no toca la copa activa', async () => {
 prueba('crear con la copa llena la cierra y abre la siguiente', async () => {
   // Copa con sus 10 posiciones ya ocupadas y puntos cargados.
   await sembrar({ posicion: 1 });
-  await setDoc(doc(db, 'copas', 'copa-test'), {
+  await sinReglas((db) => setDoc(doc(db, 'copas', 'copa-test'), {
     nombre: 'Copa de prueba',
     estado: 'activa',
     partidas: Array.from({ length: 10 }, (_, i) => ({
@@ -268,7 +283,7 @@ prueba('crear con la copa llena la cierra y abre la siguiente', async () => {
       [ANA]: { nombreJugador: 'Ana', puntosTotales: 50, posicion: 1 },
       [BETO]: { nombreJugador: 'Beto', puntosTotales: 20, posicion: 2 },
     },
-  });
+  }));
 
   const res = await crearPartida({
     nombre: 'La primera de la copa nueva',
