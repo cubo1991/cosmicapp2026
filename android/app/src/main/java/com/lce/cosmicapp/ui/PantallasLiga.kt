@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedButton
@@ -132,12 +134,29 @@ fun PantallaPartidas(
 fun PantallaPerfil(
     jugador: Jugador,
     copasCerradas: List<Copa>,
+    esAdmin: Boolean,
     onSalir: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(modifier.padding(16.dp)) {
         item {
-            Text(jugador.nombre, style = MaterialTheme.typography.headlineMedium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    jugador.nombre,
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                // Que sepas de un vistazo si tenés permisos de organizador.
+                if (esAdmin) {
+                    AssistChip(
+                        onClick = {},
+                        label = { Text("ADMIN") },
+                        colors = AssistChipDefaults.assistChipColors(
+                            labelColor = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                }
+            }
             Spacer(Modifier.height(16.dp))
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {

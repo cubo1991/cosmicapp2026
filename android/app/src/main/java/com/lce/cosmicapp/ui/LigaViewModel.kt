@@ -10,6 +10,8 @@ import com.lce.cosmicapp.data.Partida
 import com.lce.cosmicapp.data.PartidaDetalle
 import com.lce.cosmicapp.data.Puesto
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -99,16 +101,28 @@ class LigaViewModel : ViewModel() {
     fun recargar() = viewModelScope.launch {
         _estado.value = _estado.value.copy(cargando = true, error = null)
         try {
-            _estado.value = EstadoLiga(
-                copaActiva = CosmicRepository.copaActiva(),
-                rankingGlobal = CosmicRepository.rankingGlobal(),
-                partidas = CosmicRepository.partidasRecientes(),
-                copasCerradas = CosmicRepository.copasCerradas(),
-                aliens = CosmicRepository.aliens(),
-                nombresPorId = CosmicRepository.nombresDeJugadores(),
-                esAdmin = CosmicRepository.esAdmin(),
-                cargando = false
-            )
+            // En paralelo, no una detrás de otra: son siete consultas y una trae
+            // los 237 aliens. Encadenadas, abrir la app tardaba ~20 segundos.
+            coroutineScope {
+                val copa = async { CosmicRepository.copaActiva() }
+                val ranking = async { CosmicRepository.rankingGlobal() }
+                val partidas = async { CosmicRepository.partidasRecientes() }
+                val cerradas = async { CosmicRepository.copasCerradas() }
+                val aliens = async { CosmicRepository.aliens() }
+                val nombres = async { CosmicRepository.nombresDeJugadores() }
+                val admin = async { CosmicRepository.esAdmin() }
+
+                _estado.value = EstadoLiga(
+                    copaActiva = copa.await(),
+                    rankingGlobal = ranking.await(),
+                    partidas = partidas.await(),
+                    copasCerradas = cerradas.await(),
+                    aliens = aliens.await(),
+                    nombresPorId = nombres.await(),
+                    esAdmin = admin.await(),
+                    cargando = false
+                )
+            }
         } catch (e: Exception) {
             _estado.value = _estado.value.copy(
                 cargando = false,

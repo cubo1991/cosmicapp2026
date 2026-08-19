@@ -49,6 +49,7 @@ import com.lce.cosmicapp.ui.LigaViewModel
 import com.lce.cosmicapp.ui.PantallaAliens
 import com.lce.cosmicapp.ui.PantallaCargarResultados
 import com.lce.cosmicapp.ui.PantallaCopa
+import com.lce.cosmicapp.ui.PantallaHome
 import com.lce.cosmicapp.ui.PantallaNuevaPartida
 import com.lce.cosmicapp.ui.PantallaPartidas
 import com.lce.cosmicapp.ui.PantallaPerfil
@@ -140,6 +141,7 @@ private fun Onboarding(vm: SesionViewModel) {
 }
 
 private enum class Pestana(val etiqueta: String, val emoji: String) {
+    HOME("Inicio", "🚀"),
     COPA("Copa", "🏆"),
     RANKING("Ranking", "📊"),
     PARTIDAS("Partidas", "🎲"),
@@ -221,6 +223,17 @@ private fun PantallaPrincipal(
             liga.cargando -> Cargando(contenido)
             liga.error != null -> ErrorLiga(liga.error!!, ligaVm::recargar, contenido)
             else -> when (pestanas[pestanaActual]) {
+                Pestana.HOME -> PantallaHome(
+                    jugador = jugador,
+                    copa = liga.copaActiva,
+                    rankingGlobal = liga.rankingGlobal,
+                    partidas = liga.partidas,
+                    esAdmin = liga.esAdmin,
+                    onNuevaPartida = ligaVm::abrirCreacion,
+                    onIrAPartidas = { pestanaActual = Pestana.PARTIDAS.ordinal },
+                    onAbrirPartida = ligaVm::abrirSala,
+                    modifier = contenido
+                )
                 Pestana.COPA -> PantallaCopa(liga.copaActiva, contenido)
                 Pestana.RANKING -> PantallaRanking(liga.rankingGlobal, contenido)
                 Pestana.PARTIDAS -> PantallaPartidas(
@@ -232,7 +245,9 @@ private fun PantallaPrincipal(
                     modifier = contenido
                 )
                 Pestana.ALIENS -> PantallaAliens(liga.aliens, contenido)
-                Pestana.PERFIL -> PantallaPerfil(jugador, liga.copasCerradas, onSalir, contenido)
+                Pestana.PERFIL -> PantallaPerfil(
+                    jugador, liga.copasCerradas, liga.esAdmin, onSalir, contenido
+                )
             }
         }
     }

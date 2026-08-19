@@ -34,8 +34,13 @@ data class Jugador(
     val copas: Long get() = estadisticas["copas"] ?: 0
 }
 
-/** Un puesto en la tabla de una copa o del ranking global. */
-data class Puesto(val nombre: String, val puntos: Double)
+/**
+ * Un puesto en la tabla de una copa o del ranking global.
+ *
+ * Lleva el `playerId` para poder ubicar a alguien en la tabla sin comparar
+ * nombres, que en una liga chica funcionaria pero es fragil.
+ */
+data class Puesto(val playerId: String, val nombre: String, val puntos: Double)
 
 /**
  * Una copa: un ciclo de 10 partidas. El `ranking` viene embebido en el documento
@@ -202,7 +207,7 @@ object CosmicRepository {
     suspend fun rankingGlobal(): List<Puesto> =
         db.collection("players").get().await()
             .documents
-            .map { Puesto(it.getString("name") ?: "?", it.getDouble("last10Score") ?: 0.0) }
+            .map { Puesto(it.id, it.getString("name") ?: "?", it.getDouble("last10Score") ?: 0.0) }
             .filter { it.puntos > 0 }
             .sortedByDescending { it.puntos }
 
@@ -404,11 +409,12 @@ private fun com.google.firebase.firestore.DocumentSnapshot.aCopa(): Copa {
         // El campo `partidas` es la lista de partidas asociadas; su largo es
         // cuantas van de las 10 del ciclo.
         partidasJugadas = (get("partidas") as? List<*>)?.size ?: 0,
-        tabla = ranking.values
-            .map {
+        tabla = ranking.entries
+            .map { (playerId, datos) ->
                 Puesto(
-                    nombre = it["nombreJugador"] as? String ?: "?",
-                    puntos = (it["puntosTotales"] as? Number)?.toDouble() ?: 0.0
+                    playerId = playerId,
+                    nombre = datos["nombreJugador"] as? String ?: "?",
+                    puntos = (datos["puntosTotales"] as? Number)?.toDouble() ?: 0.0
                 )
             }
             .sortedByDescending { it.puntos },
