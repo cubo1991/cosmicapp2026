@@ -27,6 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.lce.cosmicapp.ui.theme.Mono
+import com.lce.cosmicapp.ui.theme.PodioColores
 import com.lce.cosmicapp.data.Copa
 import com.lce.cosmicapp.data.Jugador
 import com.lce.cosmicapp.data.Partida
@@ -174,18 +176,27 @@ fun PantallaPerfil(
 private fun TablaDePuestos(puestos: List<Puesto>) {
     LazyColumn {
         itemsIndexed(puestos) { indice, puesto ->
+            // Los tres primeros se destacan con oro, plata y bronce; el resto
+            // queda apagado para que el podio se lea de un vistazo en la mesa.
+            val colorPuesto = PodioColores.getOrNull(indice)
+                ?: MaterialTheme.colorScheme.onSurfaceVariant
+            val enPodio = indice < PodioColores.size
+
             Row(
-                Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                Modifier.fillMaxWidth().padding(vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     "${indice + 1}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.width(32.dp)
+                    style = MaterialTheme.typography.titleMedium,
+                    fontFamily = Mono,
+                    color = colorPuesto,
+                    modifier = Modifier.width(36.dp)
                 )
                 Text(
                     puesto.nombre,
                     style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = if (enPodio) FontWeight.Bold else FontWeight.Normal,
                     modifier = Modifier.weight(1f)
                 )
                 Text(
@@ -194,10 +205,11 @@ private fun TablaDePuestos(puestos: List<Puesto>) {
                     if (puesto.puntos % 1.0 == 0.0) "${puesto.puntos.toInt()}"
                     else String.format(Locale.US, "%.1f", puesto.puntos),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
+                    fontFamily = Mono,
+                    color = if (enPodio) colorPuesto else MaterialTheme.colorScheme.onSurface
                 )
             }
-            HorizontalDivider()
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         }
     }
 }

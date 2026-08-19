@@ -23,6 +23,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -62,7 +63,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             CosmicAppTheme {
-                AppCosmic()
+                // El fondo del tema lo pinta el Scaffold, y las pantallas que se
+                // muestran fuera de uno (sala, carga, nueva partida) quedaban en
+                // blanco. Este Surface se lo da a todas.
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    AppCosmic()
+                }
             }
         }
     }

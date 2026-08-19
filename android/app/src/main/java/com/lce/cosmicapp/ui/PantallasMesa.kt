@@ -1,5 +1,6 @@
 package com.lce.cosmicapp.ui
 
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -32,9 +34,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.lce.cosmicapp.ui.theme.Mono
 import com.lce.cosmicapp.data.Alien
 import com.lce.cosmicapp.data.Jugador
 
@@ -162,12 +167,60 @@ fun PantallaSala(
 
             else -> {
                 Text(partida.nombre, style = MaterialTheme.typography.headlineMedium)
+
+                // El código es lo que se dicta en voz alta en la mesa: grande,
+                // monoespaciado y en dorado, con espacio entre caracteres para
+                // que no se confunda ninguno.
                 if (partida.codigo.isNotBlank()) {
-                    Text(
-                        "Código ${partida.codigo}",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Spacer(Modifier.height(12.dp))
+                    Card(
+                        Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer
+                        )
+                    ) {
+                        Column(
+                            Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                "CÓDIGO",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                partida.codigo,
+                                style = MaterialTheme.typography.displayLarge,
+                                fontFamily = Mono,
+                                letterSpacing = 6.sp,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+
+                    // Historia B3: compartir el código por WhatsApp o lo que sea.
+                    // Es el selector de compartir del sistema, no una integración.
+                    val contexto = LocalContext.current
+                    OutlinedButton(
+                        onClick = {
+                            val texto =
+                                "Entrá a la partida de Cosmic con el código ${partida.codigo}"
+                            contexto.startActivity(
+                                Intent.createChooser(
+                                    Intent(Intent.ACTION_SEND).apply {
+                                        type = "text/plain"
+                                        putExtra(Intent.EXTRA_TEXT, texto)
+                                    },
+                                    "Compartir código"
+                                )
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Compartir código")
+                    }
+                    Spacer(Modifier.height(8.dp))
                 }
                 Text(
                     if (partida.finalizada) "Finalizada" else "En curso · se actualiza sola",
