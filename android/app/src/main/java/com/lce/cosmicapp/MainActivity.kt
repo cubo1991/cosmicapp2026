@@ -227,6 +227,7 @@ private fun PantallaPrincipal(
             PantallaSala(
                 estado = sala,
                 nombresPorId = liga.nombresPorId,
+                aliensPorId = liga.aliens.associate { it.id to it.nombre },
                 puedeCargar = liga.esAdmin,
                 mensajeExito = carga.exito,
                 onCargar = { ligaVm.abrirCarga(liga.nombresPorId) },

@@ -145,6 +145,7 @@ private fun FichaAlien(alien: Alien) {
 fun PantallaSala(
     estado: EstadoSala,
     nombresPorId: Map<String, String>,
+    aliensPorId: Map<String, String>,
     puedeCargar: Boolean,
     mensajeExito: String?,
     onCargar: () -> Unit,
@@ -264,11 +265,22 @@ fun PantallaSala(
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         items(partida.participantes) { participante ->
                             Card(Modifier.fillMaxWidth()) {
-                                Text(
-                                    participante.mostrar(nombresPorId),
-                                    Modifier.padding(12.dp),
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
+                                Column(Modifier.padding(12.dp)) {
+                                    Text(
+                                        participante.mostrar(nombresPorId),
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                    // Los dos aliens que le tocaron: en la mesa
+                                    // cada uno elige uno de los dos.
+                                    if (participante.aliens.isNotEmpty()) {
+                                        Text(
+                                            participante.aliens
+                                                .joinToString(" o ") { aliensPorId[it] ?: it },
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

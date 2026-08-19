@@ -89,7 +89,9 @@ data class Alien(
 data class Participante(
     val playerId: String?,
     val nombre: String?,
-    val color: String? = null
+    val color: String? = null,
+    /** Ids de los aliens que le tocaron al armar la partida. */
+    val aliens: List<String> = emptyList()
 ) {
     /** El nombre propio si lo trae; si no, hay que resolver el id contra players. */
     fun mostrar(nombresPorId: Map<String, String>): String =
@@ -397,7 +399,12 @@ private fun com.google.firebase.firestore.DocumentSnapshot.aDetalle(): PartidaDe
             is Map<*, *> -> jugadores.entries.mapNotNull { (clave, valor) ->
                 (clave as? String)?.let {
                     val datos = valor as? Map<*, *>
-                    Participante(it, datos?.get("nombre") as? String, datos?.get("color") as? String)
+                    Participante(
+                        it,
+                        datos?.get("nombre") as? String,
+                        datos?.get("color") as? String,
+                        (datos?.get("aliens") as? List<*>)?.mapNotNull { a -> a as? String }.orEmpty()
+                    )
                 }
             }
             // Lista legacy: jugadores de la liga y visitantes conviviendo.
@@ -406,7 +413,8 @@ private fun com.google.firebase.firestore.DocumentSnapshot.aDetalle(): PartidaDe
                     Participante(
                         it["playerId"] as? String,
                         it["nombre"] as? String,
-                        it["color"] as? String
+                        it["color"] as? String,
+                        (it["aliens"] as? List<*>)?.mapNotNull { a -> a as? String }.orEmpty()
                     )
                 }
             }

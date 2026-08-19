@@ -148,6 +148,7 @@ exports.crearPartida = onCall(async (request) => {
       : Object.keys(jugadores);
 
     const sesion = await detectarOCrearSesion(playerIds, sessionId);
+    const conAliens = await repartirAliens(jugadores);
 
     const matchRef = await db.collection("matches").add({
       nombre: nombre || "Partida sin nombre",
@@ -159,7 +160,7 @@ exports.crearPartida = onCall(async (request) => {
       sessionId: sesion,
       fechaCreacion: FieldValue.serverTimestamp(),
       fechaFinalizacion: null,
-      jugadores,
+      jugadores: conAliens,
       creadaPor: request.auth.uid,
     });
 
@@ -178,7 +179,7 @@ exports.crearPartida = onCall(async (request) => {
 
     await avisar(
       "Nueva partida",
-      `${nombre || "Una partida"} arrancó. Código ${creada.data().codigo}`
+      `${nombre || "Una partida"} arrancó con los aliens repartidos. Código ${creada.data().codigo}`
     );
 
     return {
@@ -194,6 +195,39 @@ exports.crearPartida = onCall(async (request) => {
     throw new HttpsError("internal", error.message);
   }
 });
+
+/**
+ * Reparte dos aliens a cada jugador, sin repetir entre jugadores.
+ *
+ * La web ya los asigna en el cliente y los manda en el payload; si vienen, se
+ * respetan. Android no los asignaba, asi que las partidas creadas desde el
+ * telefono salian sin aliens. Al hacerlo aca, las dos plataformas reparten
+ * igual y con el mismo criterio.
+ */
+const ALIENS_POR_JUGADOR = 2;
+
+async function repartirAliens(jugadores) {
+  // Solo tiene sentido con el formato lista, que es el que usa la creacion.
+  if (!Array.isArray(jugadores)) return jugadores;
+  if (jugadores.every((j) => j.aliens?.length)) return jugadores; // ya vienen asignados
+
+  const catalogo = await db.collection("alienList").get();
+  if (catalogo.empty) {
+    logger.warn("No hay aliens en el catalogo: la partida se crea sin repartir");
+    return jugadores;
+  }
+
+  const disponibles = catalogo.docs.map((d) => d.id);
+  return jugadores.map((jugador) => {
+    if (jugador.aliens?.length) return jugador;
+    const suyos = [];
+    for (let i = 0; i < ALIENS_POR_JUGADOR && disponibles.length > 0; i++) {
+      const indice = Math.floor(Math.random() * disponibles.length);
+      suyos.push(disponibles.splice(indice, 1)[0]);
+    }
+    return { ...jugador, aliens: suyos };
+  });
+}
 
 // Alfabeto sin 0/O ni 1/I, para que el codigo se pueda dictar en voz alta.
 const CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";

@@ -316,6 +316,41 @@ prueba('agrupa en la misma sesion las partidas de la misma noche', async () => {
   );
 });
 
+prueba('crear reparte dos aliens a cada jugador, sin repetir', async () => {
+  await sembrar({ posicion: 1 });
+  await sinReglas(async (db) => {
+    for (const id of ['a1', 'a2', 'a3', 'a4', 'a5', 'a6']) {
+      await setDoc(doc(db, 'alienList', id), { Nombre: `Alien ${id}` });
+    }
+  });
+
+  const res = await crearPartida({
+    nombre: 'Con aliens',
+    asociarACopa: false,
+    jugadores: [
+      { nombre: 'Ana', playerId: ANA, color: '#f00', aliens: [] },
+      { nombre: 'Beto', playerId: BETO, color: '#00f', aliens: [] },
+    ],
+  });
+
+  const match = (await getDoc(doc(db, 'matches', res.data.matchId))).data();
+  assert.equal(match.jugadores[0].aliens.length, 2);
+  assert.equal(match.jugadores[1].aliens.length, 2);
+  const todos = [...match.jugadores[0].aliens, ...match.jugadores[1].aliens];
+  assert.equal(new Set(todos).size, 4, 'no se puede repetir un alien entre jugadores');
+});
+
+prueba('respeta los aliens que ya vienen asignados', async () => {
+  await sembrar({ posicion: 1 });
+  const res = await crearPartida({
+    nombre: 'Ya asignados',
+    asociarACopa: false,
+    jugadores: [{ nombre: 'Ana', playerId: ANA, color: '#f00', aliens: ['elegido-1', 'elegido-2'] }],
+  });
+  const match = (await getDoc(doc(db, 'matches', res.data.matchId))).data();
+  assert.deepEqual(match.jugadores[0].aliens, ['elegido-1', 'elegido-2']);
+});
+
 prueba('rechaza crear una partida sin jugadores', async () => {
   await sembrar({ posicion: 1 });
   await assert.rejects(crearPartida({ nombre: 'Vacía', jugadores: [] }), /jugadores/i);
