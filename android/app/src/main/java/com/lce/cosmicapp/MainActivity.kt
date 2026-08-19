@@ -45,6 +45,7 @@ import com.lce.cosmicapp.ui.Cargando
 import com.lce.cosmicapp.ui.EstadoSesion
 import com.lce.cosmicapp.ui.LigaViewModel
 import com.lce.cosmicapp.ui.PantallaAliens
+import com.lce.cosmicapp.ui.PantallaCargarResultados
 import com.lce.cosmicapp.ui.PantallaCopa
 import com.lce.cosmicapp.ui.PantallaPartidas
 import com.lce.cosmicapp.ui.PantallaPerfil
@@ -146,14 +147,29 @@ private fun PantallaPrincipal(
     var pestanaActual by rememberSaveable { mutableIntStateOf(0) }
     val pestanas = Pestana.entries
 
+    val carga by ligaVm.carga.collectAsState()
+
     // La sala tapa las pestañas: mientras seguís una partida, es lo único que importa.
     if (sala.partida != null || sala.buscando) {
-        PantallaSala(
-            estado = sala,
-            nombresPorId = liga.nombresPorId,
-            onCerrar = ligaVm::cerrarSala,
-            modifier = Modifier.fillMaxSize()
-        )
+        if (carga.abierto) {
+            PantallaCargarResultados(
+                estado = carga,
+                onEditar = ligaVm::editarFila,
+                onGuardar = ligaVm::guardarCarga,
+                onCancelar = ligaVm::cerrarCarga,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            PantallaSala(
+                estado = sala,
+                nombresPorId = liga.nombresPorId,
+                puedeCargar = liga.esAdmin,
+                mensajeExito = carga.exito,
+                onCargar = { ligaVm.abrirCarga(liga.nombresPorId) },
+                onCerrar = ligaVm::cerrarSala,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
         return
     }
 

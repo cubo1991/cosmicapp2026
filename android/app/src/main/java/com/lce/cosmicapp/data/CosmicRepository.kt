@@ -9,6 +9,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.functions.FirebaseFunctions
 import com.lce.cosmicapp.R
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -79,12 +80,25 @@ data class Alien(
  * `playerId`) o un visitante suelto, que no tiene ficha en la base y solo
  * aparece con nombre y color.
  */
-data class Participante(val playerId: String?, val nombre: String?) {
+data class Participante(
+    val playerId: String?,
+    val nombre: String?,
+    val color: String? = null
+) {
     /** El nombre propio si lo trae; si no, hay que resolver el id contra players. */
     fun mostrar(nombresPorId: Map<String, String>): String =
         nombre?.takeIf { it.isNotBlank() }
             ?: playerId?.let { nombresPorId[it] }
             ?: "Sin nombre"
+
+    /**
+     * Clave con la que viaja al backend. Tiene que coincidir con la que arma la
+     * web (CargaPuntosForm): el playerId si es de la liga, y si es visitante el
+     * color o el nombre. La Cloud Function usa esta clave como id en el ranking
+     * de la copa, asi que si no coincide se duplican entradas.
+     */
+    fun claveDeCarga(): String =
+        playerId ?: color?.takeIf { it.isNotBlank() } ?: nombre.orEmpty()
 }
 
 /** Una partida abierta desde su codigo, para seguirla en la mesa. */
@@ -246,6 +260,45 @@ object CosmicRepository {
         awaitClose { registro.remove() }
     }
 
+    /**
+     * ¿Esta cuenta es admin? Se resuelve con la existencia de su doc en `admins`,
+     * que solo se crea a mano desde la consola de Firebase. Las reglas dejan leer
+     * unicamente el propio, asi que esto nunca sirve para espiar a otros.
+     */
+    suspend fun esAdmin(): Boolean {
+        val uid = usuarioActual?.uid ?: return false
+        return runCatching { db.collection("admins").document(uid).get().await().exists() }
+            .getOrDefault(false)
+    }
+
+    /**
+     * Carga los resultados de una partida.
+     *
+     * No calcula nada: manda los datos crudos a la Cloud Function `finalizarPartida`,
+     * que es la misma que usa la web. Ahi viven la formula, el ranking de la copa,
+     * el cierre al llegar a la partida 10 y las estadisticas historicas. Replicar
+     * eso en Kotlin seria una segunda fuente de verdad sobre los mismos datos.
+     *
+     * `resultados` va con la misma forma que arma la web:
+     *   { clave: { nombre, playerId, CI, CE, ganador, participó } }
+     *
+     * Devuelve el nombre del ganador si esta carga cerro la copa, o null.
+     */
+    suspend fun finalizarPartida(
+        partidaId: String,
+        resultados: Map<String, Map<String, Any?>>
+    ): String? {
+        val respuesta = FirebaseFunctions.getInstance("us-central1")
+            .getHttpsCallable("finalizarPartida")
+            .call(mapOf("matchId" to partidaId, "resultados" to resultados))
+            .await()
+
+        // getData() explicito: el campo `data` es privado, no hay property syntax.
+        val datos = respuesta.getData() as? Map<*, *>
+        val copaCerrada = datos?.get("copaCerrada") as? Map<*, *>
+        return copaCerrada?.get("nombre") as? String
+    }
+
     /** Alta de alguien que no estaba en la liga. */
     suspend fun crearJugador(nombre: String, email: String, uid: String): Jugador {
         val nuevo = mapOf(
@@ -279,13 +332,18 @@ private fun com.google.firebase.firestore.DocumentSnapshot.aDetalle(): PartidaDe
             // Mapa nuevo: la clave es el playerId y `nombre` suele venir vacio.
             is Map<*, *> -> jugadores.entries.mapNotNull { (clave, valor) ->
                 (clave as? String)?.let {
-                    Participante(it, (valor as? Map<*, *>)?.get("nombre") as? String)
+                    val datos = valor as? Map<*, *>
+                    Participante(it, datos?.get("nombre") as? String, datos?.get("color") as? String)
                 }
             }
             // Lista legacy: jugadores de la liga y visitantes conviviendo.
             is List<*> -> jugadores.mapNotNull { fila ->
                 (fila as? Map<*, *>)?.let {
-                    Participante(it["playerId"] as? String, it["nombre"] as? String)
+                    Participante(
+                        it["playerId"] as? String,
+                        it["nombre"] as? String,
+                        it["color"] as? String
+                    )
                 }
             }
             else -> emptyList()

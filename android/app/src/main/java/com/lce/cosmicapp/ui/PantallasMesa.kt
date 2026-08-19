@@ -3,20 +3,26 @@ package com.lce.cosmicapp.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -133,6 +139,9 @@ private fun FichaAlien(alien: Alien) {
 fun PantallaSala(
     estado: EstadoSala,
     nombresPorId: Map<String, String>,
+    puedeCargar: Boolean,
+    mensajeExito: String?,
+    onCargar: () -> Unit,
     onCerrar: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -163,6 +172,23 @@ fun PantallaSala(
                     if (partida.finalizada) "Finalizada" else "En curso · se actualiza sola",
                     style = MaterialTheme.typography.bodySmall
                 )
+
+                mensajeExito?.let {
+                    Spacer(Modifier.height(12.dp))
+                    Card(Modifier.fillMaxWidth()) {
+                        Text(it, Modifier.padding(12.dp))
+                    }
+                }
+
+                // Cargar resultados es cosa de admin, y solo mientras la partida
+                // siga abierta. La regla de verdad la aplica la Cloud Function.
+                if (puedeCargar && !partida.finalizada) {
+                    Spacer(Modifier.height(16.dp))
+                    Button(onClick = onCargar, modifier = Modifier.fillMaxWidth()) {
+                        Text("Cargar resultados")
+                    }
+                }
+
                 Spacer(Modifier.height(20.dp))
                 Text("Jugadores", style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
@@ -183,6 +209,127 @@ fun PantallaSala(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Carga de resultados de una partida.
+ *
+ * No muestra los puntos calculados a medida que se escribe: la formula vive en
+ * la Cloud Function y duplicarla acá para una vista previa volveria a crear dos
+ * versiones que pueden divergir. Los puntos llegan en la respuesta.
+ */
+@Composable
+fun PantallaCargarResultados(
+    estado: EstadoCarga,
+    onEditar: (String, (FilaCarga) -> FilaCarga) -> Unit,
+    onGuardar: () -> Unit,
+    onCancelar: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.padding(16.dp)) {
+        TextButton(onClick = onCancelar, enabled = !estado.guardando) { Text("← Cancelar") }
+        Spacer(Modifier.height(8.dp))
+        Text("Cargar resultados", style = MaterialTheme.typography.headlineMedium)
+        Text(
+            "Colonias internas y externas de cada jugador.",
+            style = MaterialTheme.typography.bodySmall
+        )
+        Spacer(Modifier.height(16.dp))
+
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(estado.filas, key = { it.clave }) { fila ->
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                fila.nombre,
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text("Jugó", style = MaterialTheme.typography.bodySmall)
+                            Switch(
+                                checked = fila.participa,
+                                onCheckedChange = { valor ->
+                                    onEditar(fila.clave) {
+                                        // Al marcar que no jugó se limpia todo, igual que en la web.
+                                        if (valor) it.copy(participa = true)
+                                        else it.copy(participa = false, ci = 0, ce = 0, ganador = false)
+                                    }
+                                }
+                            )
+                        }
+
+                        if (fila.participa) {
+                            Spacer(Modifier.height(8.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ContadorColonias(
+                                    etiqueta = "Internas",
+                                    valor = fila.ci,
+                                    onCambio = { v -> onEditar(fila.clave) { it.copy(ci = v) } }
+                                )
+                                Spacer(Modifier.width(16.dp))
+                                ContadorColonias(
+                                    etiqueta = "Externas",
+                                    valor = fila.ce,
+                                    onCambio = { v -> onEditar(fila.clave) { it.copy(ce = v) } }
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(
+                                    checked = fila.ganador,
+                                    onCheckedChange = { v ->
+                                        onEditar(fila.clave) { it.copy(ganador = v) }
+                                    }
+                                )
+                                Text("Ganó la partida")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        estado.error?.let {
+            Spacer(Modifier.height(8.dp))
+            Text(it, color = MaterialTheme.colorScheme.error)
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = onGuardar,
+            enabled = !estado.guardando,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(if (estado.guardando) "Guardando..." else "Guardar resultados")
+        }
+    }
+}
+
+@Composable
+private fun ContadorColonias(etiqueta: String, valor: Int, onCambio: (Int) -> Unit) {
+    Column {
+        Text(etiqueta, style = MaterialTheme.typography.bodySmall)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(
+                onClick = { onCambio((valor - 1).coerceAtLeast(0)) },
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier.size(40.dp)
+            ) { Text("−") }
+            Text(
+                "$valor",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(horizontal = 12.dp)
+            )
+            OutlinedButton(
+                onClick = { onCambio(valor + 1) },
+                contentPadding = PaddingValues(0.dp),
+                modifier = Modifier.size(40.dp)
+            ) { Text("+") }
         }
     }
 }
