@@ -115,9 +115,16 @@ data class PartidaDetalle(
     val nombre: String,
     val codigo: String,
     val estado: String,
-    val participantes: List<Participante>
+    val participantes: List<Participante>,
+    /** playerId -> alienId que esa persona eligio jugar. */
+    val alienesElegidos: Map<String, String> = emptyMap()
 ) {
     val finalizada: Boolean get() = estado == "finalizada"
+
+    fun misAliens(playerId: String): List<String> =
+        participantes.firstOrNull { it.playerId == playerId }?.aliens.orEmpty()
+
+    fun miAlienElegido(playerId: String): String? = alienesElegidos[playerId]
 }
 
 /** Tema de FCM al que se suscriben todos los telefonos de la liga. */
@@ -365,6 +372,30 @@ object CosmicRepository {
         FirebaseMessaging.getInstance().subscribeToTopic(TEMA_LIGA)
     }
 
+    /**
+     * La partida en curso en la que juega esta persona, si hay alguna.
+     *
+     * Es lo que alimenta el apartado de aliens del perfil: cada uno abre la app
+     * y ve los suyos, sin necesidad de mandarle nada al telefono.
+     */
+    suspend fun miPartidaActiva(playerId: String): PartidaDetalle? =
+        db.collection("matches").whereEqualTo("estado", "activa").get().await()
+            .documents.map { it.aDetalle() }
+            .firstOrNull { detalle -> detalle.participantes.any { it.playerId == playerId } }
+
+    /**
+     * Deja registrado cual de los dos aliens eligio jugar.
+     *
+     * Se guarda en `alienesConfirmados` de la partida, el mismo campo que usa la
+     * web; al finalizar, la Cloud Function lo copia a `alienJugado` en el
+     * historial del jugador, que es lo que despues permite sacar estadisticas
+     * por alien. Las reglas permiten esta escritura porque no define resultados.
+     */
+    suspend fun elegirAlien(partidaId: String, playerId: String, alienId: String) {
+        db.collection("matches").document(partidaId)
+            .update("alienesConfirmados.$playerId", alienId).await()
+    }
+
     /** Alta de alguien que no estaba en la liga. */
     suspend fun crearJugador(nombre: String, email: String, uid: String): Jugador {
         val nuevo = mapOf(
@@ -394,6 +425,14 @@ private fun com.google.firebase.firestore.DocumentSnapshot.aDetalle(): PartidaDe
         nombre = getString("nombre") ?: "Partida",
         codigo = getString("codigo") ?: "",
         estado = getString("estado") ?: "?",
+        alienesElegidos = (get("alienesConfirmados") as? Map<*, *>)
+            ?.entries
+            ?.mapNotNull { (k, v) ->
+                val id = k as? String; val alien = v as? String
+                if (id != null && alien != null) id to alien else null
+            }
+            ?.toMap()
+            .orEmpty(),
         participantes = when (jugadores) {
             // Mapa nuevo: la clave es el playerId y `nombre` suele venir vacio.
             is Map<*, *> -> jugadores.entries.mapNotNull { (clave, valor) ->

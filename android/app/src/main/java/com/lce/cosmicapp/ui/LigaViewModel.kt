@@ -35,6 +35,8 @@ data class EstadoLiga(
     val aliens: List<Alien> = emptyList(),
     val nombresPorId: Map<String, String> = emptyMap(),
     val jugadores: List<Jugador> = emptyList(),
+    /** La partida en curso donde juego yo, si hay alguna. */
+    val miPartida: PartidaDetalle? = null,
     val esAdmin: Boolean = false,
     val cargando: Boolean = true,
     val error: String? = null
@@ -86,7 +88,7 @@ data class EstadoCarga(
     val exito: String? = null
 )
 
-class LigaViewModel : ViewModel() {
+class LigaViewModel(private val miPlayerId: String) : ViewModel() {
 
     private val _estado = MutableStateFlow(EstadoLiga())
     val estado: StateFlow<EstadoLiga> = _estado.asStateFlow()
@@ -113,6 +115,7 @@ class LigaViewModel : ViewModel() {
                 val nombres = async { CosmicRepository.nombresDeJugadores() }
                 val jugadores = async { CosmicRepository.todosLosJugadores() }
                 val admin = async { CosmicRepository.esAdmin() }
+                val miPartida = async { CosmicRepository.miPartidaActiva(miPlayerId) }
 
                 _estado.value = EstadoLiga(
                     copaActiva = copa.await(),
@@ -123,6 +126,7 @@ class LigaViewModel : ViewModel() {
                     nombresPorId = nombres.await(),
                     jugadores = jugadores.await(),
                     esAdmin = admin.await(),
+                    miPartida = miPartida.await(),
                     cargando = false
                 )
             }
@@ -174,6 +178,22 @@ class LigaViewModel : ViewModel() {
         escuchaSala = null
         _sala.value = EstadoSala()
         _carga.value = EstadoCarga()
+    }
+
+    /** Deja registrado cual de los dos aliens voy a jugar. */
+    fun elegirAlien(alienId: String) = viewModelScope.launch {
+        val partida = _estado.value.miPartida ?: return@launch
+        try {
+            CosmicRepository.elegirAlien(partida.id, miPlayerId, alienId)
+            // Se refleja en el acto sin volver a consultar.
+            _estado.value = _estado.value.copy(
+                miPartida = partida.copy(
+                    alienesElegidos = partida.alienesElegidos + (miPlayerId to alienId)
+                )
+            )
+        } catch (e: Exception) {
+            _estado.value = _estado.value.copy(error = e.message)
+        }
     }
 
     // ---- Ficha de un jugador ----

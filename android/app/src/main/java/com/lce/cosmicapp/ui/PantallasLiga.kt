@@ -25,13 +25,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lce.cosmicapp.ui.theme.Mono
 import com.lce.cosmicapp.ui.theme.PodioColores
+import androidx.compose.material3.CardDefaults
+import com.lce.cosmicapp.data.Alien
 import com.lce.cosmicapp.data.Copa
+import com.lce.cosmicapp.data.PartidaDetalle
 import com.lce.cosmicapp.data.Jugador
 import com.lce.cosmicapp.data.Partida
 import com.lce.cosmicapp.data.Puesto
@@ -139,6 +146,9 @@ fun PantallaPerfil(
     jugador: Jugador,
     copasCerradas: List<Copa>,
     esAdmin: Boolean,
+    miPartida: PartidaDetalle?,
+    aliens: List<Alien>,
+    onElegirAlien: (String) -> Unit,
     onSalir: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -170,6 +180,8 @@ fun PantallaPerfil(
                 }
             }
             Spacer(Modifier.height(24.dp))
+            MisAliens(jugador, miPartida, aliens, onElegirAlien)
+            Spacer(Modifier.height(24.dp))
             Text("Copas cerradas", style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
         }
@@ -191,6 +203,100 @@ fun PantallaPerfil(
         item {
             Spacer(Modifier.height(24.dp))
             TextButton(onClick = onSalir) { Text("Cerrar sesión") }
+        }
+    }
+}
+
+/**
+ * Los aliens que te tocaron en la partida en curso, y cuál vas a jugar.
+ *
+ * Es el corazón de la app: en la mesa cada uno mira acá qué le salió. Elegir
+ * uno no es cosmético, queda registrado en la partida y al finalizar la Cloud
+ * Function lo guarda en tu historial, que es lo que después permite sacar
+ * estadísticas por alien.
+ */
+@Composable
+private fun MisAliens(
+    jugador: Jugador,
+    partida: PartidaDetalle?,
+    catalogo: List<Alien>,
+    onElegir: (String) -> Unit
+) {
+    Text("Aliens de la partida actual", style = MaterialTheme.typography.titleMedium)
+    Spacer(Modifier.height(8.dp))
+
+    if (partida == null) {
+        Text(
+            "No estás en ninguna partida en curso.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        return
+    }
+
+    val mios = partida.misAliens(jugador.id)
+    if (mios.isEmpty()) {
+        Text(
+            "Esta partida no tiene aliens repartidos.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        return
+    }
+
+    val elegido = partida.miAlienElegido(jugador.id)
+    Text(
+        if (elegido == null) "Tocá el que vas a jugar" else "Elegiste el tuyo",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    Spacer(Modifier.height(8.dp))
+
+    mios.forEach { alienId ->
+        val alien = catalogo.firstOrNull { it.id == alienId }
+        val esElegido = alienId == elegido
+        Card(
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+                .clickable { onElegir(alienId) },
+            colors = CardDefaults.cardColors(
+                containerColor = if (esElegido) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Column(Modifier.padding(14.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        alien?.nombre ?: alienId,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (esElegido) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (esElegido) {
+                        Text(
+                            "ELEGIDO",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                alien?.poder?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, style = MaterialTheme.typography.bodyMedium)
+                }
+                // La descripción de un alien es larguísima: se muestra a pedido
+                // para que el apartado entre de un vistazo.
+                alien?.descripcion?.takeIf { it.isNotBlank() }?.let { texto ->
+                    var abierta by remember(alienId) { mutableStateOf(false) }
+                    TextButton(onClick = { abierta = !abierta }) {
+                        Text(if (abierta) "Ocultar reglas" else "Ver reglas")
+                    }
+                    if (abierta) {
+                        Text(texto, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
         }
     }
 }

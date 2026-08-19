@@ -50,6 +50,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import com.lce.cosmicapp.data.Jugador
 import com.lce.cosmicapp.ui.Cargando
 import com.lce.cosmicapp.ui.EstadoSesion
@@ -177,9 +179,15 @@ private enum class Pestana(val etiqueta: String, val emoji: String) {
 @Composable
 private fun PantallaPrincipal(
     jugador: Jugador,
-    onSalir: () -> Unit,
-    ligaVm: LigaViewModel = viewModel()
+    onSalir: () -> Unit
 ) {
+    // El ViewModel necesita saber quién sos para traer tu partida y tus aliens.
+    val ligaVm: LigaViewModel = viewModel(
+        key = jugador.id,
+        factory = viewModelFactory {
+            initializer { LigaViewModel(jugador.id) }
+        }
+    )
     val liga by ligaVm.estado.collectAsState()
     val sala by ligaVm.sala.collectAsState()
     var pestanaActual by rememberSaveable { mutableIntStateOf(0) }
@@ -266,6 +274,8 @@ private fun PantallaPrincipal(
                     rankingGlobal = liga.rankingGlobal,
                     partidas = liga.partidas,
                     esAdmin = liga.esAdmin,
+                    miPartida = liga.miPartida,
+                    onElegirAlien = { pestanaActual = Pestana.PERFIL.ordinal },
                     onNuevaPartida = ligaVm::abrirCreacion,
                     onIrAPartidas = { pestanaActual = Pestana.PARTIDAS.ordinal },
                     onAbrirPartida = ligaVm::abrirSala,
@@ -305,7 +315,14 @@ private fun PantallaPrincipal(
                 )
                 Pestana.ALIENS -> PantallaAliens(liga.aliens, contenido)
                 Pestana.PERFIL -> PantallaPerfil(
-                    jugador, liga.copasCerradas, liga.esAdmin, onSalir, contenido
+                    jugador = jugador,
+                    copasCerradas = liga.copasCerradas,
+                    esAdmin = liga.esAdmin,
+                    miPartida = liga.miPartida,
+                    aliens = liga.aliens,
+                    onElegirAlien = ligaVm::elegirAlien,
+                    onSalir = onSalir,
+                    modifier = contenido
                 )
             }
         }

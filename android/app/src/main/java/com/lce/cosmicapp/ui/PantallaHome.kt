@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import com.lce.cosmicapp.data.Copa
 import com.lce.cosmicapp.data.Jugador
 import com.lce.cosmicapp.data.Partida
+import com.lce.cosmicapp.data.PartidaDetalle
 import com.lce.cosmicapp.data.Puesto
 import com.lce.cosmicapp.ui.theme.Mono
 import com.lce.cosmicapp.ui.theme.PodioColores
@@ -47,6 +48,8 @@ fun PantallaHome(
     rankingGlobal: List<Puesto>,
     partidas: List<Partida>,
     esAdmin: Boolean,
+    miPartida: PartidaDetalle?,
+    onElegirAlien: () -> Unit,
     onNuevaPartida: () -> Unit,
     onIrAPartidas: () -> Unit,
     onAbrirPartida: (Partida) -> Unit,
@@ -72,6 +75,14 @@ fun PantallaHome(
             }
         }
 
+        // Lo primero de todo si hay algo pendiente: en la mesa nadie empieza
+        // hasta que cada uno sepa con qué alien juega.
+        if (miPartida != null && miPartida.miAlienElegido(jugador.id) == null &&
+            miPartida.misAliens(jugador.id).isNotEmpty()
+        ) {
+            item { AvisoElegirAlien(onElegirAlien) }
+        }
+
         item { TarjetaCopa(copa, jugador) }
 
         item { TarjetaRankingGlobal(rankingGlobal, jugador) }
@@ -90,6 +101,35 @@ fun PantallaHome(
         // Lo único que ve un admin y un jugador común no: qué queda por cargar.
         if (esAdmin) {
             item { PanelAdmin(sinCargar, onAbrirPartida) }
+        }
+    }
+}
+
+/** Te faltan elegir alien: sin esto la partida no queda registrada del todo. */
+@Composable
+private fun AvisoElegirAlien(onElegir: () -> Unit) {
+    Card(
+        Modifier.fillMaxWidth().clickable { onElegir() },
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("👽", style = MaterialTheme.typography.headlineMedium)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Te tocaron tus aliens",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    "Elegí con cuál vas a jugar",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            Text("→", style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.primary)
         }
     }
 }
