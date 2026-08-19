@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -150,14 +151,17 @@ private fun PantallaPrincipal(
     val carga by ligaVm.carga.collectAsState()
 
     // La sala tapa las pestañas: mientras seguís una partida, es lo único que importa.
+    // Van fuera del Scaffold, así que necesitan el margen de las barras del
+    // sistema a mano: si no, el botón de volver queda debajo del reloj.
     if (sala.partida != null || sala.buscando) {
+        val pantallaCompleta = Modifier.fillMaxSize().safeDrawingPadding()
         if (carga.abierto) {
             PantallaCargarResultados(
                 estado = carga,
                 onEditar = ligaVm::editarFila,
                 onGuardar = ligaVm::guardarCarga,
                 onCancelar = ligaVm::cerrarCarga,
-                modifier = Modifier.fillMaxSize()
+                modifier = pantallaCompleta
             )
         } else {
             PantallaSala(
@@ -167,7 +171,7 @@ private fun PantallaPrincipal(
                 mensajeExito = carga.exito,
                 onCargar = { ligaVm.abrirCarga(liga.nombresPorId) },
                 onCerrar = ligaVm::cerrarSala,
-                modifier = Modifier.fillMaxSize()
+                modifier = pantallaCompleta
             )
         }
         return
