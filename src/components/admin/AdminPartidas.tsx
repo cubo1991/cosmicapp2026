@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useMatch } from "@/hooks/useMatch";
 import { collection, getDocs, query } from "firebase/firestore";
+import type { FirestoreDoc } from "@/firebase/db";
 import { db } from "@/firebase/config";
 import { useEffect } from "react";
 import BotónEliminar from "@/components/buttons/BotónEliminar";
@@ -21,7 +22,7 @@ export default function AdminPartidas() {
       try {
         const q = query(collection(db, "matches"));
         const snapshot = await getDocs(q);
-        const data = snapshot.docs.map((doc) => ({
+        const data: FirestoreDoc[] = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
         }));
