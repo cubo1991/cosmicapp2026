@@ -234,12 +234,23 @@ fun PantallaSala(
                     }
                 }
 
-                // Cargar resultados es cosa de admin, y solo mientras la partida
-                // siga abierta. La regla de verdad la aplica la Cloud Function.
-                if (puedeCargar && !partida.finalizada) {
+                // Cargar resultados es cosa de admin. Sobre una partida ya
+                // finalizada sirve para corregir una carga con errores: la
+                // function resta lo que habia sumado antes en vez de duplicarlo.
+                if (puedeCargar) {
                     Spacer(Modifier.height(16.dp))
                     Button(onClick = onCargar, modifier = Modifier.fillMaxWidth()) {
-                        Text("Cargar resultados")
+                        Text(
+                            if (partida.finalizada) "Corregir resultados"
+                            else "Cargar resultados"
+                        )
+                    }
+                    if (partida.finalizada) {
+                        Text(
+                            "Vuelve a calcular los puntos de esta partida y ajusta la copa.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
 

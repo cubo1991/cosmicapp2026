@@ -34,6 +34,7 @@ data class EstadoLiga(
     val copasCerradas: List<Copa> = emptyList(),
     val aliens: List<Alien> = emptyList(),
     val nombresPorId: Map<String, String> = emptyMap(),
+    val jugadores: List<Jugador> = emptyList(),
     val esAdmin: Boolean = false,
     val cargando: Boolean = true,
     val error: String? = null
@@ -110,6 +111,7 @@ class LigaViewModel : ViewModel() {
                 val cerradas = async { CosmicRepository.copasCerradas() }
                 val aliens = async { CosmicRepository.aliens() }
                 val nombres = async { CosmicRepository.nombresDeJugadores() }
+                val jugadores = async { CosmicRepository.todosLosJugadores() }
                 val admin = async { CosmicRepository.esAdmin() }
 
                 _estado.value = EstadoLiga(
@@ -119,6 +121,7 @@ class LigaViewModel : ViewModel() {
                     copasCerradas = cerradas.await(),
                     aliens = aliens.await(),
                     nombresPorId = nombres.await(),
+                    jugadores = jugadores.await(),
                     esAdmin = admin.await(),
                     cargando = false
                 )
@@ -172,6 +175,20 @@ class LigaViewModel : ViewModel() {
         _sala.value = EstadoSala()
         _carga.value = EstadoCarga()
     }
+
+    // ---- Ficha de un jugador ----
+
+    private val _jugadorVisto = MutableStateFlow<Jugador?>(null)
+    val jugadorVisto: StateFlow<Jugador?> = _jugadorVisto.asStateFlow()
+
+    fun verJugador(jugador: Jugador) { _jugadorVisto.value = jugador }
+
+    /** Desde una tabla solo tenemos el id; se resuelve contra los jugadores ya cargados. */
+    fun verJugadorPorId(playerId: String) {
+        _jugadorVisto.value = _estado.value.jugadores.firstOrNull { it.id == playerId }
+    }
+
+    fun cerrarFicha() { _jugadorVisto.value = null }
 
     // ---- Creación de partidas ----
 

@@ -14,6 +14,7 @@ const { logger } = require("firebase-functions");
 // API modular de firebase-admin v13: el viejo admin.firestore.FieldValue ya no existe.
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getMessaging } = require("firebase-admin/messaging");
 const { procesarResultadosPartida } = require("./scoring");
 
 initializeApp();
@@ -21,6 +22,28 @@ const db = getFirestore();
 
 /** Un ciclo de copa son 10 partidas; al cargar la ultima se cierra. */
 const PARTIDAS_POR_COPA = 10;
+
+/**
+ * Tema de FCM al que estan suscriptos los telefonos de la liga.
+ *
+ * ponytail: un tema en vez de guardar el token de cada dispositivo. Sin tokens
+ * no hay que registrarlos ni limpiar los muertos. La contra es que el aviso es
+ * igual para todos, asi que dice "se cargaron los resultados" y no "sumaste 9".
+ */
+const TEMA_LIGA = "liga";
+
+/** Manda un aviso a la liga. Nunca tumba la operacion que lo disparo. */
+async function avisar(titulo, cuerpo) {
+  try {
+    await getMessaging().send({
+      topic: TEMA_LIGA,
+      notification: { title: titulo, body: cuerpo },
+      android: { priority: "high" },
+    });
+  } catch (e) {
+    logger.warn(`No se pudo enviar el aviso "${titulo}": ${e.message}`);
+  }
+}
 
 /** Puntos de podio de la ultima copa: no se acumulan, se reasignan. */
 const PODIO_PTS = [10, 7, 5];
@@ -77,6 +100,12 @@ exports.finalizarPartida = onCall(async (request) => {
 
     // PASO 5: estadisticas y ranking global de los jugadores registrados.
     await actualizarJugadores(matchId, match, resultadosCrudos, resultados);
+
+    if (copaCerrada) {
+      await avisar("¡Copa cerrada!", `La ganó ${copaCerrada.nombre} con ${copaCerrada.puntosTotales} puntos.`);
+    } else {
+      await avisar("Resultados cargados", `Ya están los puntos de ${match.nombre || "la partida"}.`);
+    }
 
     return {
       success: true,
@@ -146,6 +175,12 @@ exports.crearPartida = onCall(async (request) => {
     }
 
     const creada = await matchRef.get();
+
+    await avisar(
+      "Nueva partida",
+      `${nombre || "Una partida"} arrancó. Código ${creada.data().codigo}`
+    );
+
     return {
       success: true,
       matchId: matchRef.id,

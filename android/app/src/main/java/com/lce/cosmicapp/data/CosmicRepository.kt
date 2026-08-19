@@ -10,6 +10,7 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
+import com.google.firebase.messaging.FirebaseMessaging
 import com.lce.cosmicapp.R
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -116,6 +117,9 @@ data class PartidaDetalle(
 ) {
     val finalizada: Boolean get() = estado == "finalizada"
 }
+
+/** Tema de FCM al que se suscriben todos los telefonos de la liga. */
+const val TEMA_LIGA = "liga"
 
 object CosmicRepository {
 
@@ -346,6 +350,18 @@ object CosmicRepository {
         db.collection("players").get().await()
             .documents.map { it.aJugador() }
             .sortedBy { it.nombre.lowercase() }
+
+    /**
+     * Suscribe el telefono a los avisos de la liga.
+     *
+     * ponytail: un tema de FCM en vez de guardar el token de cada dispositivo en
+     * Firestore. Sin tokens no hay que registrarlos, refrescarlos ni limpiar los
+     * que quedan muertos. La contra es que los avisos son iguales para todos: no
+     * se puede decir "sumaste 9 puntos", solo "se cargaron los resultados".
+     */
+    fun escucharAvisosDeLaLiga() {
+        FirebaseMessaging.getInstance().subscribeToTopic(TEMA_LIGA)
+    }
 
     /** Alta de alguien que no estaba en la liga. */
     suspend fun crearJugador(nombre: String, email: String, uid: String): Jugador {

@@ -1,6 +1,10 @@
 package com.lce.cosmicapp
 
+import android.Manifest
+import android.os.Build
 import android.os.Bundle
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -22,6 +26,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.SnackbarHost
@@ -33,6 +40,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -49,6 +57,8 @@ import com.lce.cosmicapp.ui.LigaViewModel
 import com.lce.cosmicapp.ui.PantallaAliens
 import com.lce.cosmicapp.ui.PantallaCargarResultados
 import com.lce.cosmicapp.ui.PantallaCopa
+import com.lce.cosmicapp.ui.PantallaFichaJugador
+import com.lce.cosmicapp.ui.PantallaLigaLCE
 import com.lce.cosmicapp.ui.PantallaHome
 import com.lce.cosmicapp.ui.PantallaNuevaPartida
 import com.lce.cosmicapp.ui.PantallaPartidas
@@ -81,12 +91,27 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppCosmic(vm: SesionViewModel = viewModel()) {
     val estado by vm.estado.collectAsState()
+    PedirPermisoDeAvisos()
 
     // Una vez que la cuenta tiene jugador, la app pasa a ser el visor de la liga.
     when (val actual = estado) {
         is EstadoSesion.Listo -> PantallaPrincipal(actual.jugador, onSalir = vm::salir)
         else -> Onboarding(vm)
     }
+}
+
+/**
+ * Desde Android 13 las notificaciones se piden en tiempo de ejecución.
+ * Se pide una sola vez al abrir; si dicen que no, la app funciona igual, solo
+ * que sin avisos.
+ */
+@Composable
+private fun PedirPermisoDeAvisos() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+    val pedir = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { /* concedido o no, seguimos igual */ }
+    LaunchedEffect(Unit) { pedir.launch(Manifest.permission.POST_NOTIFICATIONS) }
 }
 
 /** Login y elección de jugador: las dos pantallas previas a entrar a la liga. */
@@ -158,10 +183,21 @@ private fun PantallaPrincipal(
     val liga by ligaVm.estado.collectAsState()
     val sala by ligaVm.sala.collectAsState()
     var pestanaActual by rememberSaveable { mutableIntStateOf(0) }
+    var verHistorico by rememberSaveable { mutableStateOf(false) }
     val pestanas = Pestana.entries
 
     val carga by ligaVm.carga.collectAsState()
     val creacion by ligaVm.creacion.collectAsState()
+    val jugadorVisto by ligaVm.jugadorVisto.collectAsState()
+
+    jugadorVisto?.let { visto ->
+        PantallaFichaJugador(
+            jugador = visto,
+            onVolver = ligaVm::cerrarFicha,
+            modifier = Modifier.fillMaxSize().safeDrawingPadding()
+        )
+        return
+    }
 
     if (creacion.abierto) {
         PantallaNuevaPartida(
@@ -234,8 +270,30 @@ private fun PantallaPrincipal(
                     onAbrirPartida = ligaVm::abrirSala,
                     modifier = contenido
                 )
-                Pestana.COPA -> PantallaCopa(liga.copaActiva, contenido)
-                Pestana.RANKING -> PantallaRanking(liga.rankingGlobal, contenido)
+                Pestana.COPA -> PantallaCopa(liga.copaActiva, ligaVm::verJugadorPorId, contenido)
+                Pestana.RANKING -> Column(contenido) {
+                    // Dos vistas del mismo tema en una pestaña, para no sumar
+                    // una sexta a la barra de abajo.
+                    SingleChoiceSegmentedButtonRow(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        SegmentedButton(
+                            selected = !verHistorico,
+                            onClick = { verHistorico = false },
+                            shape = SegmentedButtonDefaults.itemShape(0, 2)
+                        ) { Text("Últimas 10") }
+                        SegmentedButton(
+                            selected = verHistorico,
+                            onClick = { verHistorico = true },
+                            shape = SegmentedButtonDefaults.itemShape(1, 2)
+                        ) { Text("Histórico LCE") }
+                    }
+                    if (verHistorico) {
+                        PantallaLigaLCE(liga.jugadores, ligaVm::verJugador)
+                    } else {
+                        PantallaRanking(liga.rankingGlobal, ligaVm::verJugadorPorId)
+                    }
+                }
                 Pestana.PARTIDAS -> PantallaPartidas(
                     partidas = liga.partidas,
                     errorCodigo = sala.error,

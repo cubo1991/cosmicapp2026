@@ -44,7 +44,7 @@ private val formatoFecha = SimpleDateFormat("dd/MM/yyyy", Locale("es", "AR"))
 private const val PARTIDAS_POR_COPA = 10
 
 @Composable
-fun PantallaCopa(copa: Copa?, modifier: Modifier = Modifier) {
+fun PantallaCopa(copa: Copa?, onVerJugador: (String) -> Unit, modifier: Modifier = Modifier) {
     if (copa == null) {
         Aviso("No hay ninguna copa en curso.", modifier)
         return
@@ -62,12 +62,16 @@ fun PantallaCopa(copa: Copa?, modifier: Modifier = Modifier) {
             modifier = Modifier.fillMaxWidth()
         )
         Spacer(Modifier.height(20.dp))
-        TablaDePuestos(copa.tabla)
+        TablaDePuestos(copa.tabla, onVerJugador)
     }
 }
 
 @Composable
-fun PantallaRanking(ranking: List<Puesto>, modifier: Modifier = Modifier) {
+fun PantallaRanking(
+    ranking: List<Puesto>,
+    onVerJugador: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
     if (ranking.isEmpty()) {
         Aviso("Todavía no hay puntos cargados.", modifier)
         return
@@ -75,11 +79,11 @@ fun PantallaRanking(ranking: List<Puesto>, modifier: Modifier = Modifier) {
     Column(modifier.padding(16.dp)) {
         Text("Ranking global", style = MaterialTheme.typography.headlineMedium)
         Text(
-            "Suma de las últimas 10 partidas",
+            "Suma de las últimas 10 partidas · tocá a alguien para ver su ficha",
             style = MaterialTheme.typography.bodySmall
         )
         Spacer(Modifier.height(16.dp))
-        TablaDePuestos(ranking)
+        TablaDePuestos(ranking, onVerJugador)
     }
 }
 
@@ -192,7 +196,7 @@ fun PantallaPerfil(
 }
 
 @Composable
-private fun TablaDePuestos(puestos: List<Puesto>) {
+private fun TablaDePuestos(puestos: List<Puesto>, onTocar: (String) -> Unit) {
     LazyColumn {
         itemsIndexed(puestos) { indice, puesto ->
             // Los tres primeros se destacan con oro, plata y bronce; el resto
@@ -202,7 +206,10 @@ private fun TablaDePuestos(puestos: List<Puesto>) {
             val enPodio = indice < PodioColores.size
 
             Row(
-                Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { onTocar(puesto.playerId) }
+                    .padding(vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(

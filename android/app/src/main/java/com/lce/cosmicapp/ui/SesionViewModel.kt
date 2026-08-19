@@ -84,6 +84,8 @@ class SesionViewModel : ViewModel() {
     }
 
     private suspend fun resolverJugadorAhora(uid: String) {
+        // Cada vez que entra alguien: es idempotente y sobrevive a reinstalar.
+        CosmicRepository.escucharAvisosDeLaLiga()
         val propio = CosmicRepository.jugadorDeLaCuenta(uid)
         _estado.value = if (propio != null) {
             EstadoSesion.Listo(propio)
