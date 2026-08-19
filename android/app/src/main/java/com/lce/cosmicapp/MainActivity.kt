@@ -48,6 +48,7 @@ import com.lce.cosmicapp.ui.LigaViewModel
 import com.lce.cosmicapp.ui.PantallaAliens
 import com.lce.cosmicapp.ui.PantallaCargarResultados
 import com.lce.cosmicapp.ui.PantallaCopa
+import com.lce.cosmicapp.ui.PantallaNuevaPartida
 import com.lce.cosmicapp.ui.PantallaPartidas
 import com.lce.cosmicapp.ui.PantallaPerfil
 import com.lce.cosmicapp.ui.PantallaRanking
@@ -149,6 +150,18 @@ private fun PantallaPrincipal(
     val pestanas = Pestana.entries
 
     val carga by ligaVm.carga.collectAsState()
+    val creacion by ligaVm.creacion.collectAsState()
+
+    if (creacion.abierto) {
+        PantallaNuevaPartida(
+            estado = creacion,
+            onEditar = ligaVm::editarNuevaPartida,
+            onCrear = ligaVm::crearPartida,
+            onCancelar = ligaVm::cerrarCreacion,
+            modifier = Modifier.fillMaxSize().safeDrawingPadding()
+        )
+        return
+    }
 
     // La sala tapa las pestañas: mientras seguís una partida, es lo único que importa.
     // Van fuera del Scaffold, así que necesitan el margen de las barras del
@@ -205,6 +218,7 @@ private fun PantallaPrincipal(
                     partidas = liga.partidas,
                     errorCodigo = sala.error,
                     onBuscarCodigo = ligaVm::abrirSalaPorCodigo,
+                    onNuevaPartida = ligaVm::abrirCreacion,
                     onAbrir = ligaVm::abrirSala,
                     modifier = contenido
                 )

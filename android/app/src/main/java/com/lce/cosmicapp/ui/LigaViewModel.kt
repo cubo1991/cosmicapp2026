@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.lce.cosmicapp.data.Alien
 import com.lce.cosmicapp.data.Copa
 import com.lce.cosmicapp.data.CosmicRepository
+import com.lce.cosmicapp.data.Jugador
 import com.lce.cosmicapp.data.Partida
 import com.lce.cosmicapp.data.PartidaDetalle
 import com.lce.cosmicapp.data.Puesto
@@ -40,6 +41,18 @@ data class EstadoLiga(
 data class EstadoSala(
     val partida: PartidaDetalle? = null,
     val buscando: Boolean = false,
+    val error: String? = null
+)
+
+/** Formulario de nueva partida. */
+data class EstadoCreacion(
+    val abierto: Boolean = false,
+    val nombre: String = "",
+    val candidatos: List<Jugador> = emptyList(),
+    val seleccionados: Set<String> = emptySet(),
+    val sumaALaCopa: Boolean = true,
+    val cargando: Boolean = false,
+    val creando: Boolean = false,
     val error: String? = null
 )
 
@@ -144,6 +157,59 @@ class LigaViewModel : ViewModel() {
         escuchaSala = null
         _sala.value = EstadoSala()
         _carga.value = EstadoCarga()
+    }
+
+    // ---- Creación de partidas ----
+
+    private val _creacion = MutableStateFlow(EstadoCreacion())
+    val creacion: StateFlow<EstadoCreacion> = _creacion.asStateFlow()
+
+    fun abrirCreacion() = viewModelScope.launch {
+        _creacion.value = EstadoCreacion(abierto = true, cargando = true)
+        try {
+            _creacion.value = EstadoCreacion(
+                abierto = true,
+                candidatos = CosmicRepository.todosLosJugadores()
+            )
+        } catch (e: Exception) {
+            _creacion.value = EstadoCreacion(abierto = true, error = e.message)
+        }
+    }
+
+    fun cerrarCreacion() { _creacion.value = EstadoCreacion() }
+
+    fun editarNuevaPartida(cambio: (EstadoCreacion) -> EstadoCreacion) {
+        _creacion.value = cambio(_creacion.value).copy(error = null)
+    }
+
+    fun crearPartida() = viewModelScope.launch {
+        val estado = _creacion.value
+        val elegidos = estado.candidatos.filter { it.id in estado.seleccionados }
+
+        // La copa reparte puntos entre jugadores registrados: no tiene sentido
+        // asociarla con menos de dos. La validación de fondo la hace la function.
+        if (elegidos.size < 2) {
+            _creacion.value = estado.copy(error = "Elegí al menos dos jugadores")
+            return@launch
+        }
+
+        _creacion.value = estado.copy(creando = true, error = null)
+        try {
+            val (id, codigo) = CosmicRepository.crearPartida(
+                nombre = estado.nombre.ifBlank { "Partida sin nombre" },
+                jugadores = elegidos,
+                asociarACopa = estado.sumaALaCopa
+            )
+            _creacion.value = EstadoCreacion()
+            recargar()
+            // Se entra derecho a la sala recién creada: es lo que sigue en la mesa.
+            seguirEnVivo(PartidaDetalle(id, estado.nombre, codigo, "activa", emptyList()))
+        } catch (e: Exception) {
+            _creacion.value = _creacion.value.copy(
+                creando = false,
+                error = e.message ?: "No se pudo crear la partida"
+            )
+        }
     }
 
     // ---- Carga de resultados ----

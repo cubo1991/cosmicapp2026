@@ -1,12 +1,3 @@
 <resources>
     <string name="app_name">CosmicApp</string>
-
-    <!--
-      Crear una partida se hace en la web, no en la app: ese flujo dispara el
-      ciclo de vida de las copas (cerrar al llegar a 10, adjudicar ganador y
-      abrir la siguiente) y replicarlo en Kotlin seria una segunda fuente de
-      verdad. Ver docs/PLAN_APP_ANDROID.md.
-      Si cambia el dominio del despliegue, se cambia aca.
-    -->
-    <string name="url_nueva_partida">https://cosmicapp2026.vercel.app/nuevaPartida</string>
 </resources>

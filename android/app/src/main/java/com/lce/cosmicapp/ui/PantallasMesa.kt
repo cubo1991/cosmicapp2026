@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.lce.cosmicapp.data.Alien
+import com.lce.cosmicapp.data.Jugador
 
 /**
  * Catalogo de aliens con buscador y sorteo.
@@ -330,6 +331,109 @@ private fun ContadorColonias(etiqueta: String, valor: Int, onCambio: (Int) -> Un
                 contentPadding = PaddingValues(0.dp),
                 modifier = Modifier.size(40.dp)
             ) { Text("+") }
+        }
+    }
+}
+
+/**
+ * Nueva partida: nombre, quienes juegan y si suma a la copa.
+ *
+ * La casilla de copa importa: con ella marcada, la partida ocupa una de las 10
+ * posiciones del ciclo y puede llegar a cerrarlo. Desmarcada sirve para jugar
+ * sueltos o para probar sin ensuciar la copa en curso.
+ */
+@Composable
+fun PantallaNuevaPartida(
+    estado: EstadoCreacion,
+    onEditar: ((EstadoCreacion) -> EstadoCreacion) -> Unit,
+    onCrear: () -> Unit,
+    onCancelar: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier.padding(16.dp)) {
+        TextButton(onClick = onCancelar, enabled = !estado.creando) { Text("← Cancelar") }
+        Spacer(Modifier.height(8.dp))
+        Text("Nueva partida", style = MaterialTheme.typography.headlineMedium)
+        Spacer(Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = estado.nombre,
+            onValueChange = { nuevo -> onEditar { it.copy(nombre = nuevo) } },
+            label = { Text("Nombre (opcional)") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Switch(
+                checked = estado.sumaALaCopa,
+                onCheckedChange = { valor -> onEditar { it.copy(sumaALaCopa = valor) } }
+            )
+            Spacer(Modifier.width(8.dp))
+            Column {
+                Text("Suma a la copa")
+                Text(
+                    if (estado.sumaALaCopa) "Ocupa una posición del ciclo de 10"
+                    else "Partida suelta, no toca la copa",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        Text("¿Quiénes juegan?", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(8.dp))
+
+        if (estado.cargando) {
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            items(estado.candidatos, key = { it.id }) { jugador ->
+                val elegido = jugador.id in estado.seleccionados
+                Card(Modifier.fillMaxWidth()) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = elegido,
+                            onCheckedChange = { marcar ->
+                                onEditar {
+                                    it.copy(
+                                        seleccionados = if (marcar) it.seleccionados + jugador.id
+                                        else it.seleccionados - jugador.id
+                                    )
+                                }
+                            }
+                        )
+                        Text(jugador.nombre, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            }
+        }
+
+        estado.error?.let {
+            Spacer(Modifier.height(8.dp))
+            Text(it, color = MaterialTheme.colorScheme.error)
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = onCrear,
+            enabled = !estado.creando,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                if (estado.creando) "Creando..."
+                else "Crear partida (${estado.seleccionados.size})"
+            )
         }
     }
 }

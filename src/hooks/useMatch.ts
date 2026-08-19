@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { doc, getDoc, updateDoc, serverTimestamp, addDoc, collection } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import { scoringService } from '@/services/scoringService';
+import { createMatch } from '@/services/matchService';
 import { copaService } from '@/services/copaService';
 import { ligaService } from '@/services/ligaService';
 import { rankingService } from '@/services/rankingService';
@@ -127,29 +128,22 @@ export function useCrearMatch() {
         };
       });
 
-      // Agregar a Firestore
-      const docRef = await addDoc(collection(db, 'matches'), {
+      // Delega en createMatch, que llama a la Cloud Function. Antes escribía la
+      // partida directo en Firestore, salteándose la asignación a la copa
+      // activa: un segundo camino de creación con reglas distintas.
+      const matchId = await createMatch({
         nombre,
-        copId: copId || null,
-        ligaId: ligaId || null,
-        estado: 'activa',
-        fechaCreacion: serverTimestamp(),
-        fechaFinalizacion: null,
-        jugadores: datosJugadores
+        jugadores: datosJugadores,
+        asociarACopa: true,
+        ligaId
       });
 
-      // Si está en una copa, agregarla
-      if (copId) {
-        await copaService.agregarPartida(copId, docRef.id);
-      }
-
-      // Si está en una liga, agregarla
       if (ligaId) {
-        await ligaService.agregarPartida(ligaId, docRef.id);
+        await ligaService.agregarPartida(ligaId, matchId);
       }
 
       setLoading(false);
-      return { success: true, matchId: docRef.id };
+      return { success: true, matchId };
     } catch (err) {
       const message = err.message || 'Error creando partida';
       setError(message);

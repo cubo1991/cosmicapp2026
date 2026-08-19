@@ -94,6 +94,185 @@ exports.finalizarPartida = onCall(async (request) => {
 });
 
 /**
+ * Crea una partida y la asocia a la copa activa.
+ *
+ * Existe por lo mismo que finalizarPartida: crear no es solo escribir un
+ * documento. Asigna la posicion dentro de la copa y, si la copa ya estaba
+ * llena, la cierra adjudicando ganador y abre la siguiente. Ademas agrupa la
+ * partida en una "sesion" con las de la misma noche. Todo eso vivia en el
+ * cliente web y replicarlo en Kotlin habria sido otra fuente de verdad.
+ */
+exports.crearPartida = onCall(async (request) => {
+  const { nombre, jugadores, asociarACopa = true, ligaId = null, sessionId = null } =
+    request.data || {};
+
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "Hay que iniciar sesión");
+  }
+  if (!jugadores || (Array.isArray(jugadores) && jugadores.length === 0)) {
+    throw new HttpsError("invalid-argument", "La partida necesita jugadores");
+  }
+
+  try {
+    const playerIds = Array.isArray(jugadores)
+      ? jugadores.map((j) => j.playerId).filter(Boolean)
+      : Object.keys(jugadores);
+
+    const sesion = await detectarOCrearSesion(playerIds, sessionId);
+
+    const matchRef = await db.collection("matches").add({
+      nombre: nombre || "Partida sin nombre",
+      codigo: generarCodigo(),
+      copId: null, // lo completa la asignacion a la copa
+      ligaId,
+      estado: "activa",
+      asociarACopa,
+      sessionId: sesion,
+      fechaCreacion: FieldValue.serverTimestamp(),
+      fechaFinalizacion: null,
+      jugadores,
+      creadaPor: request.auth.uid,
+    });
+
+    let copa = null;
+    if (asociarACopa) {
+      // Si falla la asignacion no se tira la partida: ya existe y se puede
+      // asociar despues. Mismo criterio que tenia la web.
+      try {
+        copa = await agregarPartidaACopa(matchRef.id);
+      } catch (e) {
+        logger.warn(`Partida ${matchRef.id} creada sin copa: ${e.message}`);
+      }
+    }
+
+    const creada = await matchRef.get();
+    return {
+      success: true,
+      matchId: matchRef.id,
+      codigo: creada.data().codigo,
+      sessionId: sesion,
+      copa,
+    };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    logger.error("Error creando partida", { error: error.message });
+    throw new HttpsError("internal", error.message);
+  }
+});
+
+// Alfabeto sin 0/O ni 1/I, para que el codigo se pueda dictar en voz alta.
+const CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const generarCodigo = () =>
+  Array.from({ length: 6 }, () => CHARS[Math.floor(Math.random() * CHARS.length)]).join("");
+
+/**
+ * Agrupa partidas consecutivas en una sesion: si en las ultimas 4 horas hubo
+ * una partida con al menos la mitad de los mismos jugadores, se reusa su
+ * sessionId. Sirve para reconocer "la juntada del sabado" como una unidad.
+ */
+async function detectarOCrearSesion(playerIds, sessionIdExistente) {
+  if (sessionIdExistente) return sessionIdExistente; // revancha
+  if (!playerIds || playerIds.length === 0) return `ses_${Date.now()}`;
+
+  try {
+    const corte = new Date(Date.now() - 4 * 60 * 60 * 1000);
+    const snap = await db.collection("matches")
+      .orderBy("fechaCreacion", "desc")
+      .limit(15)
+      .get();
+
+    const buscados = new Set(playerIds);
+    for (const d of snap.docs) {
+      const m = d.data();
+      if (!m.sessionId || !m.fechaCreacion) continue;
+      const fecha = m.fechaCreacion.toDate ? m.fechaCreacion.toDate() : new Date(m.fechaCreacion);
+      if (fecha < corte) continue;
+
+      const suyos = Array.isArray(m.jugadores)
+        ? m.jugadores.map((j) => j.playerId).filter(Boolean)
+        : Object.keys(m.jugadores || {});
+      const enComun = suyos.filter((p) => buscados.has(p)).length;
+      const umbral = Math.ceil(Math.min(playerIds.length, suyos.length) * 0.5);
+      if (enComun >= umbral) return m.sessionId;
+    }
+  } catch (e) {
+    logger.warn(`No se pudo detectar sesión: ${e.message}`);
+  }
+  return `ses_${Date.now()}`;
+}
+
+/** La copa en curso. Si la que hay ya tiene 10 partidas, la cierra y abre otra. */
+async function obtenerOCrearCopaActiva() {
+  const snap = await db.collection("copas").where("estado", "==", "activa").get();
+
+  if (!snap.empty) {
+    const copaDoc = snap.docs[0];
+    const copa = copaDoc.data();
+    if ((copa.partidas || []).length < PARTIDAS_POR_COPA) {
+      return { id: copaDoc.id, ...copa };
+    }
+    // Copa llena que nunca se cerró: caso de borde heredado de la web.
+    await cerrarCopaConGanador(copaDoc.id, copa.ranking || {});
+    return crearNuevaCopa();
+  }
+  return crearNuevaCopa();
+}
+
+/** Abre la copa siguiente, con todos los jugadores registrados en cero. */
+async function crearNuevaCopa() {
+  const todas = await db.collection("copas").get();
+  const nombre = `Copa #${todas.size + 1}`;
+
+  const players = await db.collection("players").get();
+  const rankingInicial = {};
+  players.docs.forEach((p) => {
+    rankingInicial[p.id] = {
+      nombreJugador: p.data().name || "Sin nombre",
+      puntosTotales: 0,
+      participacionesPorPosicion: {},
+      posicion: 0,
+    };
+  });
+
+  const datos = {
+    nombre,
+    descripcion: "Copa generada automáticamente",
+    estado: "activa",
+    partidas: [],
+    ranking: rankingInicial,
+    ganador: null,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+  const ref = await db.collection("copas").add(datos);
+  logger.info(`Copa nueva creada: ${nombre}`);
+  return { id: ref.id, ...datos };
+}
+
+/** Reserva la siguiente posicion de la copa para esta partida. */
+async function agregarPartidaACopa(matchId) {
+  const copa = await obtenerOCrearCopaActiva();
+  const partidas = copa.partidas || [];
+  const posicion = partidas.length + 1;
+
+  await db.collection("copas").doc(copa.id).update({
+    partidas: [
+      ...partidas,
+      { posicion, matchId, fechaJuego: new Date(), estado: "pendiente" },
+    ],
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  await db.collection("matches").doc(matchId).update({
+    copId: copa.id,
+    posicion,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
+  return { copaId: copa.id, copaNombre: copa.nombre, posicion };
+}
+
+/**
  * Suma los puntos de la partida al ranking de la copa.
  *
  * Soporta reedicion: si la posicion ya estaba cargada, primero resta lo que

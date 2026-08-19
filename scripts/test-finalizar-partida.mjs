@@ -27,6 +27,7 @@ connectFunctionsEmulator(functions, '127.0.0.1', 5001);
 
 await signInAnonymously(auth);
 const finalizarPartida = httpsCallable(functions, 'finalizarPartida');
+const crearPartida = httpsCallable(functions, 'crearPartida');
 
 const ANA = 'jugador-ana';
 const BETO = 'jugador-beto';
@@ -216,6 +217,93 @@ prueba('no toca la copa si la partida es de visitantes', async () => {
   assert.deepEqual(copa.ranking, {}, 'la copa no se toca');
   const match = (await getDoc(doc(db, 'matches', 'partida-test'))).data();
   assert.equal(match.jugadores.visitante1.puntos.total, 6, '2x1 + 1x2 + 2/1 victoria');
+});
+
+// ---- Creación de partidas ----
+
+prueba('crear una partida la asocia a la copa activa', async () => {
+  await sembrar({ posicion: 1 });
+  const res = await crearPartida({
+    nombre: 'Nueva',
+    jugadores: [{ nombre: 'Ana', playerId: ANA, color: '#f00', aliens: [] }],
+  });
+
+  assert.match(res.data.codigo, /^[A-Z2-9]{6}$/, 'el código es de 6 caracteres legibles');
+  assert.equal(res.data.copa.copaNombre, 'Copa de prueba');
+  assert.equal(res.data.copa.posicion, 2, 'va después de la que ya estaba');
+
+  const copa = (await getDoc(doc(db, 'copas', 'copa-test'))).data();
+  assert.equal(copa.partidas.length, 2);
+  const match = (await getDoc(doc(db, 'matches', res.data.matchId))).data();
+  assert.equal(match.copId, 'copa-test');
+  assert.equal(match.posicion, 2);
+  assert.equal(match.estado, 'activa');
+});
+
+prueba('una partida sin copa no toca la copa activa', async () => {
+  await sembrar({ posicion: 1 });
+  const res = await crearPartida({
+    nombre: 'Con visitantes',
+    asociarACopa: false,
+    jugadores: [{ nombre: 'Visitante rojo', playerId: null, color: '#f00', aliens: [] }],
+  });
+
+  const copa = (await getDoc(doc(db, 'copas', 'copa-test'))).data();
+  assert.equal(copa.partidas.length, 1, 'la copa queda como estaba');
+  const match = (await getDoc(doc(db, 'matches', res.data.matchId))).data();
+  assert.equal(match.copId, null);
+  assert.equal(res.data.copa, null);
+});
+
+prueba('crear con la copa llena la cierra y abre la siguiente', async () => {
+  // Copa con sus 10 posiciones ya ocupadas y puntos cargados.
+  await sembrar({ posicion: 1 });
+  await setDoc(doc(db, 'copas', 'copa-test'), {
+    nombre: 'Copa de prueba',
+    estado: 'activa',
+    partidas: Array.from({ length: 10 }, (_, i) => ({
+      posicion: i + 1, matchId: `vieja-${i}`, fechaJuego: new Date(), estado: 'cargada',
+    })),
+    ranking: {
+      [ANA]: { nombreJugador: 'Ana', puntosTotales: 50, posicion: 1 },
+      [BETO]: { nombreJugador: 'Beto', puntosTotales: 20, posicion: 2 },
+    },
+  });
+
+  const res = await crearPartida({
+    nombre: 'La primera de la copa nueva',
+    jugadores: [{ nombre: 'Ana', playerId: ANA, color: '#f00', aliens: [] }],
+  });
+
+  const vieja = (await getDoc(doc(db, 'copas', 'copa-test'))).data();
+  assert.equal(vieja.estado, 'finalizada', 'la copa llena se cierra');
+  assert.equal(vieja.ganador.nombre, 'Ana');
+
+  assert.notEqual(res.data.copa.copaId, 'copa-test', 'la partida va a la copa nueva');
+  assert.equal(res.data.copa.posicion, 1, 'arranca en la posición 1');
+
+  const ana = (await getDoc(doc(db, 'players', ANA))).data();
+  assert.equal(ana.estadisticas.copas, 1, 'la ganadora suma la copa');
+});
+
+prueba('agrupa en la misma sesion las partidas de la misma noche', async () => {
+  await sembrar({ posicion: 1 });
+  const jugadores = [
+    { nombre: 'Ana', playerId: ANA, color: '#f00', aliens: [] },
+    { nombre: 'Beto', playerId: BETO, color: '#00f', aliens: [] },
+  ];
+  const primera = await crearPartida({ nombre: 'Primera', jugadores, asociarACopa: false });
+  const segunda = await crearPartida({ nombre: 'Revancha', jugadores, asociarACopa: false });
+
+  assert.equal(
+    segunda.data.sessionId, primera.data.sessionId,
+    'con los mismos jugadores y a minutos de distancia, es la misma sesión'
+  );
+});
+
+prueba('rechaza crear una partida sin jugadores', async () => {
+  await sembrar({ posicion: 1 });
+  await assert.rejects(crearPartida({ nombre: 'Vacía', jugadores: [] }), /jugadores/i);
 });
 
 for (const { nombre, fn } of pruebas) {

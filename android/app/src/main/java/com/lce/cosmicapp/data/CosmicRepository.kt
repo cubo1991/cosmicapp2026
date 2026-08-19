@@ -299,6 +299,49 @@ object CosmicRepository {
         return copaCerrada?.get("nombre") as? String
     }
 
+    /**
+     * Crea una partida con jugadores de la liga.
+     *
+     * Igual que finalizar: no arma nada por su cuenta. La Cloud Function
+     * `crearPartida` genera el codigo, agrupa la sesion y reserva la posicion
+     * en la copa activa, que puede implicar cerrar la copa anterior y abrir la
+     * siguiente. Devuelve el id y el codigo compartible.
+     */
+    suspend fun crearPartida(
+        nombre: String,
+        jugadores: List<Jugador>,
+        asociarACopa: Boolean
+    ): Pair<String, String> {
+        val payload = jugadores.map {
+            mapOf(
+                "nombre" to it.nombre,
+                "playerId" to it.id,
+                "color" to null,
+                "aliens" to emptyList<String>()
+            )
+        }
+        val respuesta = FirebaseFunctions.getInstance("us-central1")
+            .getHttpsCallable("crearPartida")
+            .call(
+                mapOf(
+                    "nombre" to nombre,
+                    "jugadores" to payload,
+                    "asociarACopa" to asociarACopa
+                )
+            )
+            .await()
+
+        val datos = respuesta.getData() as? Map<*, *>
+        val id = datos?.get("matchId") as? String ?: error("La función no devolvió la partida")
+        return id to (datos["codigo"] as? String).orEmpty()
+    }
+
+    /** Todos los jugadores de la liga, para elegir quiénes juegan. */
+    suspend fun todosLosJugadores(): List<Jugador> =
+        db.collection("players").get().await()
+            .documents.map { it.aJugador() }
+            .sortedBy { it.nombre.lowercase() }
+
     /** Alta de alguien que no estaba en la liga. */
     suspend fun crearJugador(nombre: String, email: String, uid: String): Jugador {
         val nuevo = mapOf(

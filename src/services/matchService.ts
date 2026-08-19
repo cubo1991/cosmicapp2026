@@ -1,7 +1,8 @@
 'use client';
 
 import { addDoc, collection, getDocs, query, where, orderBy, limit, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/firebase/config';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '@/firebase/config';
 import { useStore } from '@/store/useStore';
 import { activeCopaService } from './activeCopaService';
 
@@ -61,6 +62,36 @@ const generateCodigoCorto = () =>
  * - Antiguo: { jugadores: [{ nombre, color, aliens }] }
  */
 export const createMatch = async (matchData) => {
+  if (!matchData || !matchData.jugadores) {
+    throw new Error('Datos de partida inválidos');
+  }
+
+  // Desde 2026-08 la creación la hace la Cloud Function `crearPartida`, igual
+  // que la finalización: asignar la partida a la copa puede cerrar la copa
+  // anterior y abrir la siguiente, y eso no puede tener dos implementaciones.
+  // La app Android llama exactamente a la misma función.
+  try {
+    const crear = httpsCallable(functions, 'crearPartida');
+    const { data } = await crear({
+      nombre: matchData.nombre,
+      jugadores: matchData.jugadores,
+      asociarACopa: matchData.asociarACopa !== false,
+      ligaId: matchData.ligaId || null,
+      sessionId: matchData.sessionId || null,
+    });
+
+    const respuesta = data as Record<string, any>;
+    useStore.getState().setCodigoPartida(respuesta.matchId);
+    useStore.getState().setCodigoCorto(respuesta.codigo);
+    return respuesta.matchId;
+  } catch (error: any) {
+    console.error('Error creando partida:', error.message);
+    throw new Error(error.message || 'No se pudo crear la partida');
+  }
+};
+
+/** @deprecated Reemplazada por la Cloud Function `crearPartida`. Sin uso. */
+const _createMatchLegacy = async (matchData) => {
   try {
     if (!matchData || !matchData.jugadores) {
       throw new Error('Datos de partida inválidos');

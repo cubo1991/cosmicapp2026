@@ -1,6 +1,5 @@
 package com.lce.cosmicapp.ui
 
-import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,9 +25,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.core.net.toUri
-import com.lce.cosmicapp.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lce.cosmicapp.data.Copa
@@ -88,28 +84,18 @@ fun PantallaPartidas(
     partidas: List<Partida>,
     errorCodigo: String?,
     onBuscarCodigo: (String) -> Unit,
+    onNuevaPartida: () -> Unit,
     onAbrir: (Partida) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val contexto = LocalContext.current
-
     Column(modifier.padding(16.dp)) {
         Text("Partidas", style = MaterialTheme.typography.headlineMedium)
         Spacer(Modifier.height(12.dp))
         BuscadorDeCodigo(onBuscar = onBuscarCodigo, error = errorCodigo)
         Spacer(Modifier.height(12.dp))
 
-        // Crear una partida abre la web: ahí vive el ciclo de vida de las copas.
-        // Se crea allá, se vuelve, y se sigue desde la sala con el código.
-        OutlinedButton(
-            onClick = {
-                contexto.startActivity(
-                    Intent(Intent.ACTION_VIEW, contexto.getString(R.string.url_nueva_partida).toUri())
-                )
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("➕  Crear partida en la web")
+        OutlinedButton(onClick = onNuevaPartida, modifier = Modifier.fillMaxWidth()) {
+            Text("➕  Nueva partida")
         }
         Spacer(Modifier.height(16.dp))
 
