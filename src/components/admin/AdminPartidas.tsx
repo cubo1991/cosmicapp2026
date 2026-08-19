@@ -25,6 +25,10 @@ export default function AdminPartidas() {
           id: doc.id,
           ...doc.data(),
         }));
+        // Más nuevas primero, ordenando acá y no con orderBy: Firestore descarta
+        // los documentos que no tienen el campo, y las ~110 partidas de la Copa
+        // Histórica no traen fechaCreacion. Quedan al final, que es donde van.
+        data.sort((a, b) => (b.fechaCreacion?.toMillis() ?? 0) - (a.fechaCreacion?.toMillis() ?? 0));
         setPartidas(data);
       } catch (error) {
         console.error("Error cargando partidas:", error);
