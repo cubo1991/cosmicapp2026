@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getFunctions } from "firebase/functions";
 
 // Configuración de Firebase
 const firebaseConfig = {
@@ -20,3 +21,5 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const provider = new GoogleAuthProvider();
 export const db = getFirestore(app);
+// La región tiene que coincidir con la del deploy (ver `firebase functions:list`).
+export const functions = getFunctions(app, "us-central1");

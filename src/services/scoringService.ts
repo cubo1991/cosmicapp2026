@@ -12,7 +12,8 @@ import {
   writeBatch,
   increment
 } from 'firebase/firestore';
-import { db } from '@/firebase/config';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '@/firebase/config';
 import { rankingService } from '@/services/rankingService';
 import { activeCopaService } from '@/services/activeCopaService';
 
@@ -440,6 +441,27 @@ export const scoringService = {
    * }
    */
   async finalizarPartidaConCopa(matchId: string, resultadosJugadores: Record<string, any>) {
+    // Desde 2026-08 esto lo hace la Cloud Function `finalizarPartida`, que es la
+    // única fuente de verdad: la app Android llama exactamente a la misma. Antes
+    // todo el cálculo corría acá, en el cliente, y llevarlo también a Kotlin
+    // habría dado dos implementaciones divergiendo sobre los mismos datos.
+    //
+    // La firma y la forma de retorno se mantienen para no tocar a quienes la
+    // llaman (JoinMatch, CargaPuntosForm, AdminGenerarPartidas).
+    // El código viejo quedó en el historial de git y portado en functions/.
+    try {
+      const finalizar = httpsCallable(functions, 'finalizarPartida');
+      const { data } = await finalizar({ matchId, resultados: resultadosJugadores });
+      return data as Record<string, any>;
+    } catch (error: any) {
+      // Los HttpsError llegan con el mensaje real en `message`.
+      console.error('Error finalizando partida:', error.message);
+      throw new Error(error.message || 'No se pudo finalizar la partida');
+    }
+  },
+
+  /** @deprecated Reemplazada por la Cloud Function. Se conserva sin uso. */
+  async _finalizarPartidaConCopaLegacy(matchId: string, resultadosJugadores: Record<string, any>) {
     try {
       // PASO 1: Procesar resultados (calcula puntos automáticamente)
       const { resultados, resumen } = this.procesarResultadosPartida(resultadosJugadores);
