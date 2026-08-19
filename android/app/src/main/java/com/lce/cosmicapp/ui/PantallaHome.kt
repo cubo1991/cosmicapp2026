@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lce.cosmicapp.data.Copa
 import com.lce.cosmicapp.data.Jugador
-import com.lce.cosmicapp.data.Partida
 import com.lce.cosmicapp.data.PartidaDetalle
 import com.lce.cosmicapp.data.Puesto
 import com.lce.cosmicapp.ui.theme.Mono
@@ -46,13 +45,13 @@ fun PantallaHome(
     jugador: Jugador,
     copa: Copa?,
     rankingGlobal: List<Puesto>,
-    partidas: List<Partida>,
+    partidas: List<PartidaDetalle>,
     esAdmin: Boolean,
     miPartida: PartidaDetalle?,
     onElegirAlien: () -> Unit,
     onNuevaPartida: () -> Unit,
     onIrAPartidas: () -> Unit,
-    onAbrirPartida: (Partida) -> Unit,
+    onAbrirPartida: (PartidaDetalle) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val sinCargar = partidas.filter { !it.finalizada }
@@ -222,7 +221,7 @@ private fun MiPosicion(tabla: List<Puesto>, jugador: Jugador, donde: String) {
  * ella. El permiso de verdad lo aplica la Cloud Function; esto es la interfaz.
  */
 @Composable
-private fun PanelAdmin(sinCargar: List<Partida>, onAbrir: (Partida) -> Unit) {
+private fun PanelAdmin(sinCargar: List<PartidaDetalle>, onAbrir: (PartidaDetalle) -> Unit) {
     Card(
         Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(

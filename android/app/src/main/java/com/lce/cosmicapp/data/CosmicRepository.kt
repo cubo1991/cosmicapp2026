@@ -28,7 +28,9 @@ data class Jugador(
     val id: String,
     val nombre: String,
     val uid: String? = null,
-    val estadisticas: Map<String, Long> = emptyMap()
+    val estadisticas: Map<String, Long> = emptyMap(),
+    /** Suma de las ultimas 10 partidas; la mantiene la Cloud Function. */
+    val last10Score: Double = 0.0
 ) {
     val jugadas: Long get() = estadisticas["jugadas"] ?: 0
     val victorias: Long get() = estadisticas["victorias"] ?: 0
@@ -91,7 +93,10 @@ data class Participante(
     val nombre: String?,
     val color: String? = null,
     /** Ids de los aliens que le tocaron al armar la partida. */
-    val aliens: List<String> = emptyList()
+    val aliens: List<String> = emptyList(),
+    /** Solo se sabe una vez cargados los resultados. */
+    val gano: Boolean = false,
+    val puntos: Double? = null
 ) {
     /** El nombre propio si lo trae; si no, hay que resolver el id contra players. */
     fun mostrar(nombresPorId: Map<String, String>): String =
@@ -117,9 +122,11 @@ data class PartidaDetalle(
     val estado: String,
     val participantes: List<Participante>,
     /** playerId -> alienId que esa persona eligio jugar. */
-    val alienesElegidos: Map<String, String> = emptyMap()
+    val alienesElegidos: Map<String, String> = emptyMap(),
+    val fecha: java.util.Date? = null
 ) {
     val finalizada: Boolean get() = estado == "finalizada"
+    val cantidadJugadores: Int get() = participantes.size
 
     fun misAliens(playerId: String): List<String> =
         participantes.firstOrNull { it.playerId == playerId }?.aliens.orEmpty()
@@ -373,6 +380,46 @@ object CosmicRepository {
     }
 
     /**
+     * Todo lo que cambia solo, escuchado en vivo.
+     *
+     * Firestore mantiene un canal abierto (websockets por debajo) y reenvia el
+     * documento cada vez que cambia, venga el cambio de la web, de otro telefono
+     * o de la Cloud Function. Es lo que hace que en la mesa el ranking se mueva
+     * mientras se cargan los puntos, sin que nadie recargue nada.
+     *
+     * El catalogo de aliens NO se escucha: son 237 documentos que no cambian.
+     */
+    fun observarCopas(): Flow<List<Copa>> = callbackFlow {
+        val reg = db.collection("copas").addSnapshotListener { snap, error ->
+            if (error != null) close(error)
+            else trySend(snap?.documents?.map { it.aCopa() }.orEmpty())
+        }
+        awaitClose { reg.remove() }
+    }
+
+    fun observarJugadores(): Flow<List<Jugador>> = callbackFlow {
+        val reg = db.collection("players").addSnapshotListener { snap, error ->
+            if (error != null) close(error)
+            else trySend(
+                snap?.documents?.map { it.aJugador() }
+                    ?.sortedBy { it.nombre.lowercase() }.orEmpty()
+            )
+        }
+        awaitClose { reg.remove() }
+    }
+
+    fun observarPartidas(cuantas: Long = 25): Flow<List<PartidaDetalle>> = callbackFlow {
+        val reg = db.collection("matches")
+            .orderBy("fechaCreacion", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(cuantas)
+            .addSnapshotListener { snap, error ->
+                if (error != null) close(error)
+                else trySend(snap?.documents?.map { it.aDetalle() }.orEmpty())
+            }
+        awaitClose { reg.remove() }
+    }
+
+    /**
      * La partida en curso en la que juega esta persona, si hay alguna.
      *
      * Es lo que alimenta el apartado de aliens del perfil: cada uno abre la app
@@ -425,6 +472,7 @@ private fun com.google.firebase.firestore.DocumentSnapshot.aDetalle(): PartidaDe
         nombre = getString("nombre") ?: "Partida",
         codigo = getString("codigo") ?: "",
         estado = getString("estado") ?: "?",
+        fecha = getTimestamp("fechaCreacion")?.toDate(),
         alienesElegidos = (get("alienesConfirmados") as? Map<*, *>)
             ?.entries
             ?.mapNotNull { (k, v) ->
@@ -442,7 +490,11 @@ private fun com.google.firebase.firestore.DocumentSnapshot.aDetalle(): PartidaDe
                         it,
                         datos?.get("nombre") as? String,
                         datos?.get("color") as? String,
-                        (datos?.get("aliens") as? List<*>)?.mapNotNull { a -> a as? String }.orEmpty()
+                        (datos?.get("aliens") as? List<*>)?.mapNotNull { a -> a as? String }.orEmpty(),
+                        gano = datos?.get("esGanador") as? Boolean ?: false,
+                        // `puntos` es un objeto una vez finalizada la partida.
+                        puntos = ((datos?.get("puntos") as? Map<*, *>)?.get("total") as? Number)
+                            ?.toDouble()
                     )
                 }
             }
@@ -509,6 +561,7 @@ private fun com.google.firebase.firestore.DocumentSnapshot.aJugador(): Jugador {
         id = id,
         nombre = getString("name") ?: "(sin nombre)",
         uid = getString("uid"),
+        last10Score = getDouble("last10Score") ?: 0.0,
         // Firestore devuelve los enteros como Long, pero los datos sembrados desde
         // la web pueden venir como Double; normalizamos para no romper.
         estadisticas = stats.mapValues { (_, valor) -> (valor as? Number)?.toLong() ?: 0L }

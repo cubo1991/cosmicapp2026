@@ -266,10 +266,30 @@ fun PantallaSala(
                         items(partida.participantes) { participante ->
                             Card(Modifier.fillMaxWidth()) {
                                 Column(Modifier.padding(12.dp)) {
-                                    Text(
-                                        participante.mostrar(nombresPorId),
-                                        style = MaterialTheme.typography.bodyLarge
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        // La coronita: quien gano la partida.
+                                        if (participante.gano) {
+                                            Text("👑 ", style = MaterialTheme.typography.bodyLarge)
+                                        }
+                                        Text(
+                                            participante.mostrar(nombresPorId),
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = if (participante.gano) FontWeight.Bold
+                                            else FontWeight.Normal,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        participante.puntos?.let { pts ->
+                                            Text(
+                                                if (pts % 1.0 == 0.0) "${pts.toInt()} pts"
+                                                else String.format(java.util.Locale.US, "%.1f pts", pts),
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontFamily = Mono,
+                                                color = if (participante.gano)
+                                                    MaterialTheme.colorScheme.primary
+                                                else MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
                                     // Los dos aliens que le tocaron: en la mesa
                                     // cada uno elige uno de los dos.
                                     if (participante.aliens.isNotEmpty()) {

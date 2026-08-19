@@ -40,7 +40,6 @@ import com.lce.cosmicapp.data.Alien
 import com.lce.cosmicapp.data.Copa
 import com.lce.cosmicapp.data.PartidaDetalle
 import com.lce.cosmicapp.data.Jugador
-import com.lce.cosmicapp.data.Partida
 import com.lce.cosmicapp.data.Puesto
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -96,11 +95,11 @@ fun PantallaRanking(
 
 @Composable
 fun PantallaPartidas(
-    partidas: List<Partida>,
+    partidas: List<PartidaDetalle>,
     errorCodigo: String?,
     onBuscarCodigo: (String) -> Unit,
     onNuevaPartida: () -> Unit,
-    onAbrir: (Partida) -> Unit,
+    onAbrir: (PartidaDetalle) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier.padding(16.dp)) {

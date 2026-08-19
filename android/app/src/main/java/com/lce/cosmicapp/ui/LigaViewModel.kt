@@ -30,7 +30,7 @@ import kotlinx.coroutines.launch
 data class EstadoLiga(
     val copaActiva: Copa? = null,
     val rankingGlobal: List<Puesto> = emptyList(),
-    val partidas: List<Partida> = emptyList(),
+    val partidas: List<PartidaDetalle> = emptyList(),
     val copasCerradas: List<Copa> = emptyList(),
     val aliens: List<Alien> = emptyList(),
     val nombresPorId: Map<String, String> = emptyMap(),
@@ -99,43 +99,90 @@ class LigaViewModel(private val miPlayerId: String) : ViewModel() {
     /** Escucha activa de la partida abierta; se corta al cerrar la sala. */
     private var escuchaSala: Job? = null
 
-    init { recargar() }
+    /** Las escuchas activas. Se declara antes del init: si no, su inicializador
+     * a null corre despues y se pierde la referencia. */
+    private var escuchas: Job? = null
 
-    fun recargar() = viewModelScope.launch {
-        _estado.value = _estado.value.copy(cargando = true, error = null)
-        try {
-            // En paralelo, no una detrás de otra: son siete consultas y una trae
-            // los 237 aliens. Encadenadas, abrir la app tardaba ~20 segundos.
-            coroutineScope {
-                val copa = async { CosmicRepository.copaActiva() }
-                val ranking = async { CosmicRepository.rankingGlobal() }
-                val partidas = async { CosmicRepository.partidasRecientes() }
-                val cerradas = async { CosmicRepository.copasCerradas() }
-                val aliens = async { CosmicRepository.aliens() }
-                val nombres = async { CosmicRepository.nombresDeJugadores() }
-                val jugadores = async { CosmicRepository.todosLosJugadores() }
-                val admin = async { CosmicRepository.esAdmin() }
-                val miPartida = async { CosmicRepository.miPartidaActiva(miPlayerId) }
+    init { escuchar() }
 
-                _estado.value = EstadoLiga(
-                    copaActiva = copa.await(),
-                    rankingGlobal = ranking.await(),
-                    partidas = partidas.await(),
-                    copasCerradas = cerradas.await(),
-                    aliens = aliens.await(),
-                    nombresPorId = nombres.await(),
-                    jugadores = jugadores.await(),
-                    esAdmin = admin.await(),
-                    miPartida = miPartida.await(),
-                    cargando = false
-                )
+    /**
+     * Todo se actualiza solo.
+     *
+     * Copas, jugadores y partidas se escuchan en vivo: cuando la Cloud Function
+     * carga unos puntos, o alguien elige su alien desde otro telefono, la
+     * pantalla se mueve sola. Lo unico que se lee una sola vez es el catalogo de
+     * aliens —237 documentos que no cambian— y si sos admin.
+     */
+    fun recargar() = escuchar()
+
+    private fun escuchar() {
+        escuchas?.cancel()
+        escuchas = viewModelScope.launch {
+            launch {
+                try {
+                    // Primero se traen los datos y recien despues se escribe el
+                    // estado: si se pusieran como argumentos de copy(), Kotlin
+                    // evalua el receptor `_estado.value` ANTES de suspender, y al
+                    // volver pisaria todo lo que los listeners hayan entregado
+                    // mientras tanto.
+                    val catalogo = CosmicRepository.aliens()
+                    val admin = CosmicRepository.esAdmin()
+                    _estado.value = _estado.value.copy(
+                        aliens = catalogo,
+                        esAdmin = admin,
+                        cargando = false
+                    )
+                } catch (e: Exception) {
+                    _estado.value = _estado.value.copy(error = e.message, cargando = false)
+                }
             }
-        } catch (e: Exception) {
-            _estado.value = _estado.value.copy(
-                cargando = false,
-                error = e.message ?: "No se pudo cargar la liga"
-            )
+            launch {
+                CosmicRepository.observarCopas()
+                    .catch { e -> _estado.value = _estado.value.copy(error = e.message, cargando = false) }
+                    .collect { copas ->
+                        _estado.value = _estado.value.copy(
+                            copaActiva = copas.firstOrNull { it.esActiva },
+                            copasCerradas = copas.filter { !it.esActiva }
+                                .sortedByDescending { it.nombre },
+                            cargando = false
+                        )
+                    }
+            }
+            launch {
+                CosmicRepository.observarJugadores()
+                    .catch { e -> _estado.value = _estado.value.copy(error = e.message, cargando = false) }
+                    .collect { jugadores ->
+                        _estado.value = _estado.value.copy(
+                            jugadores = jugadores,
+                            nombresPorId = jugadores.associate { it.id to it.nombre },
+                            rankingGlobal = jugadores
+                                .map { Puesto(it.id, it.nombre, it.last10Score) }
+                                .filter { it.puntos > 0 }
+                                .sortedByDescending { it.puntos },
+                            cargando = false
+                        )
+                    }
+            }
+            launch {
+                CosmicRepository.observarPartidas()
+                    .catch { e -> _estado.value = _estado.value.copy(error = e.message, cargando = false) }
+                    .collect { partidas ->
+                        _estado.value = _estado.value.copy(
+                            partidas = partidas,
+                            miPartida = partidas.firstOrNull { p ->
+                                !p.finalizada && p.participantes.any { it.playerId == miPlayerId }
+                            },
+                            cargando = false
+                        )
+                    }
+            }
         }
+    }
+
+    override fun onCleared() {
+        escuchas?.cancel()
+        escuchaSala?.cancel()
+        super.onCleared()
     }
 
     fun abrirSalaPorCodigo(codigo: String) = viewModelScope.launch {
@@ -153,12 +200,9 @@ class LigaViewModel(private val miPlayerId: String) : ViewModel() {
         }
     }
 
-    fun abrirSala(partida: Partida) = viewModelScope.launch {
+    fun abrirSala(partida: PartidaDetalle) = viewModelScope.launch {
         _sala.value = EstadoSala(buscando = true)
-        // Arranca con lo poco que ya sabemos del listado; el listener completa el resto.
-        seguirEnVivo(
-            PartidaDetalle(partida.id, partida.nombre, "", partida.estado, emptyList())
-        )
+        seguirEnVivo(partida)
     }
 
     private fun seguirEnVivo(inicial: PartidaDetalle) {
@@ -184,13 +228,8 @@ class LigaViewModel(private val miPlayerId: String) : ViewModel() {
     fun elegirAlien(alienId: String) = viewModelScope.launch {
         val partida = _estado.value.miPartida ?: return@launch
         try {
+            // No hace falta reflejarlo a mano: el listener de partidas lo trae.
             CosmicRepository.elegirAlien(partida.id, miPlayerId, alienId)
-            // Se refleja en el acto sin volver a consultar.
-            _estado.value = _estado.value.copy(
-                miPartida = partida.copy(
-                    alienesElegidos = partida.alienesElegidos + (miPlayerId to alienId)
-                )
-            )
         } catch (e: Exception) {
             _estado.value = _estado.value.copy(error = e.message)
         }
@@ -336,8 +375,4 @@ class LigaViewModel(private val miPlayerId: String) : ViewModel() {
         }
     }
 
-    override fun onCleared() {
-        escuchaSala?.cancel()
-        super.onCleared()
-    }
 }
