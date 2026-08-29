@@ -1,8 +1,8 @@
 # 📱 Plan: App Nativa Android — CosmicApp 2026
 
-**Estado**: Etapas 0–3 implementadas (ver §5)
+**Estado**: Etapas 0–4 implementadas (ver §5). Pendientes reales en [`PENDIENTES_ANDROID.md`](PENDIENTES_ANDROID.md).
 **Fecha**: Agosto 2026
-**Alcance**: Android primero. iOS se evalúa al cierre de la Etapa 3.
+**Alcance**: Android primero. Decisión de iOS abierta (ver pendientes).
 
 ---
 
@@ -125,10 +125,14 @@ Prioridad: **[M]** must / **[S]** should / **[C]** could. Agrupadas por épica.
 
 Cada etapa termina con un entregable usable e instalable (APK por Firebase App Distribution para el grupo de la liga; Play Store recién en Etapa 4).
 
-> **Estado al 18/08/2026**: etapas 0 a 3 implementadas. Falta **compartir el código**
-> de la partida (lo único pendiente de la Etapa 2) y, sobre todo, **cumplir el
-> criterio de salida de la Etapa 3**: que una copa entera pase por la app. Eso no
-> es trabajo de código, es jugar. La decisión sobre iOS está habilitada.
+> **Estado al 19/08/2026**: etapas 0 a 4 implementadas en código. Sigue sin
+> cumplirse el **criterio de salida real de la Etapa 3**: que una copa entera
+> (10 partidas) transcurra jugándose íntegramente desde la app. Eso no es
+> trabajo de código, es jugar y validar que los datos queden idénticos a como
+> los hubiera dejado la web. Favoritos de aliens (E3) y publicación en Play
+> Store (parte de Etapa 4) quedaron afuera — ver
+> [`PENDIENTES_ANDROID.md`](PENDIENTES_ANDROID.md). La decisión sobre iOS
+> (Etapa 5) sigue abierta.
 >
 > Se implementó **sin Hilt**: con un repositorio y dos ViewModels no pagaba su costo.
 
@@ -141,18 +145,19 @@ Onboarding de vinculación (A2, A2b): al primer login, la app lista los jugadore
 Copa activa con ranking en tiempo real (C1), ranking global (D1), historial de partidas (B4), historial de copas (C2), perfil propio (A3).
 **Criterio de salida**: cualquier jugador de la LCE puede seguir la liga desde el celular sin tocar la web. *Esta etapa ya entrega valor real y es puro Firestore-read: riesgo mínimo.*
 
-### Etapa 2 — Partidas en la mesa ⚠️ (falta compartir el código)
-Crear partida + compartir código (B3), unirse con código (B1), sala de partida en tiempo real (B2), lista de aliens (E1), alien aleatorio (E2).
+### Etapa 2 — Partidas en la mesa ✅
+Crear partida + compartir código (B3), unirse con código (B1), sala de partida en tiempo real (B2), lista de aliens (E1), alien aleatorio (E2), más los aliens de la partida actual con selección propia.
 **Criterio de salida**: una partida real de la liga se organiza íntegramente desde celulares.
 
-### Etapa 3 — Escritura crítica ⚠️ (código listo; falta la copa real)
-**Prerrequisito**: migrar a Cloud Functions (§2.2). **Hecho**: `finalizarPartida` y `crearPartida` concentran cálculo de puntos, ranking de copa, cierre del ciclo de 10 y estadísticas. Web y Android llaman a las mismas.
+### Etapa 3 — Escritura crítica ⚠️ (código listo; falta validar con una copa real)
+**Prerrequisito**: migrar a Cloud Functions (§2.2). **Hecho**: `finalizarPartida` y `crearPartida` concentran cálculo de puntos, ranking de copa, cierre del ciclo de 10 y estadísticas. Web y Android llaman a las mismas. Reglas de Firestore blindadas para los campos que definen el resultado.
 Carga de resultados y finalización (B5), con lo que se dispara todo el ciclo: puntos, copa, estadísticas, cierre de copa a las 10 partidas. Rol admin en la app (F1).
-**Criterio de salida**: una copa completa (10 partidas) transcurre sin abrir la web, y los datos quedan idénticos a como los hubiera dejado la web.
-**Hito de decisión iOS**: acá se evalúa iPhone con datos de uso reales.
+**Criterio de salida**: una copa completa (10 partidas) transcurre sin abrir la web, y los datos quedan idénticos a como los hubiera dejado la web. **Sigue pendiente de validarse jugando.**
+**Hito de decisión iOS**: acá se evalúa iPhone con datos de uso reales — ver pendientes.
 
-### Etapa 4 — Pulido y alcance ampliado
-Notificaciones push (G1, G2, C3), Liga LCE (D2), detalle de jugadores (D3), correcciones de partidas (B6), favoritos de aliens (E3), publicación en Play Store.
+### Etapa 4 — Pulido y alcance ampliado ⚠️ (mayormente hecho; ver pendientes)
+Hecho: notificaciones push reales por Cloud Function al tópico de la liga (G1, G3, y una versión general de G2 — aviso al cargar resultados, no personalizado por jugador), Liga LCE histórica (D2), ficha/detalle de jugadores (D3), corrección de partidas cargadas con error (B6).
+Pendiente: favoritos de aliens (E3), publicación en Play Store. Ver [`PENDIENTES_ANDROID.md`](PENDIENTES_ANDROID.md).
 
 ### Etapa 5 (condicional) — iOS
 Si se confirma: evaluar KMP (compartir data/domain, UI en SwiftUI) contra nativo puro. La decisión depende de cuánta lógica quedó en el cliente tras la migración a Cloud Functions — si quedó poca, nativo puro en Swift es viable; si quedó mucha, KMP.
@@ -169,7 +174,7 @@ Si se confirma: evaluar KMP (compartir data/domain, UI en SwiftUI) contra nativo
 | 3b | `matches.jugadores` tiene dos formatos (map nuevo y array legacy) conviviendo | Normalizar con una migración **antes** de modelar en Kotlin (ver MODELO_DATOS.md) |
 | 4 | Dos codebases de UI para mantener con un solo dev | Alcance móvil deliberadamente menor (admin pesado queda en web) |
 | 5 | Costo Firebase al sumar listeners móviles en tiempo real | Escala actual (una liga) es trivial; revisar si crece |
-| 6 | ¿Cuenta de Google Play? (USD 25 una vez, verificación de identidad) | Resolver antes de Etapa 4; hasta entonces, App Distribution |
+| 6 | ¿Cuenta de Google Play? (USD 25 una vez, verificación de identidad) | Sin resolver aún, ver [`PENDIENTES_ANDROID.md`](PENDIENTES_ANDROID.md); hasta entonces, App Distribution |
 | 7 | En el onboarding, alguien se vincula al jugador de otro (por error o vivo) | Solo se pueden reclamar jugadores sin `uid` asociado; el admin puede deshacer la vinculación (A2c). Con la escala de una liga entre conocidos, alcanza |
 
 ---
