@@ -144,6 +144,7 @@ private fun FichaAlien(alien: Alien) {
 @Composable
 fun PantallaSala(
     estado: EstadoSala,
+    miJugadorId: String,
     nombresPorId: Map<String, String>,
     aliensPorId: Map<String, String>,
     puedeCargar: Boolean,
@@ -290,9 +291,12 @@ fun PantallaSala(
                                             )
                                         }
                                     }
-                                    // Los dos aliens que le tocaron: en la mesa
-                                    // cada uno elige uno de los dos.
-                                    if (participante.aliens.isNotEmpty()) {
+                                    // Los dos aliens que le tocaron son secretos hasta
+                                    // que cada uno elige: acá solo se muestran los
+                                    // propios, nunca los ajenos.
+                                    if (participante.playerId == miJugadorId &&
+                                        participante.aliens.isNotEmpty()
+                                    ) {
                                         Text(
                                             participante.aliens
                                                 .joinToString(" o ") { aliensPorId[it] ?: it },

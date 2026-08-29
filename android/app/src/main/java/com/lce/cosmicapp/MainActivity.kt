@@ -234,6 +234,7 @@ private fun PantallaPrincipal(
         } else {
             PantallaSala(
                 estado = sala,
+                miJugadorId = jugador.id,
                 nombresPorId = liga.nombresPorId,
                 aliensPorId = liga.aliens.associate { it.id to it.nombre },
                 puedeCargar = liga.esAdmin,
