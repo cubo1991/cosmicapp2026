@@ -404,6 +404,51 @@ export default function PlayerDetailPage() {
           </div>
         )}
 
+        {/* ── ÚLTIMAS 10 PARTIDAS (detalle, todas) ───────────────────── */}
+        {!loadingStats && ultimas.length > 0 && (
+          <div className="game-panel" style={{ padding: '24px', marginBottom: '20px' }}>
+            <p className="cosmic-label" style={{ marginBottom: '16px' }}>ÚLTIMAS {ultimas.length} PARTIDAS</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {ultimas.map(p => {
+                const fecha = p.createdAt?.seconds
+                  ? new Date(p.createdAt.seconds * 1000).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                  : '—';
+                const alienNombre = p.alienJugado ? (alienNames[p.alienJugado] || p.alienJugado) : null;
+                return (
+                  <div key={p.id} style={{
+                    display: 'flex', alignItems: 'center', gap: '14px', padding: '12px 16px',
+                    background: p.esGanador ? 'rgba(200,153,42,0.05)' : 'rgba(255,255,255,0.02)',
+                    border: `1px solid ${p.esGanador ? 'rgba(200,153,42,0.2)' : 'rgba(255,255,255,0.06)'}`,
+                    borderRadius: '8px',
+                  }}>
+                    <span style={{ fontSize: '18px', flexShrink: 0, width: '22px', textAlign: 'center' }}>
+                      {p.esGanador ? '🏆' : '·'}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontFamily: FB, fontSize: '13px', fontWeight: 600, color: p.esGanador ? '#c8992a' : '#f0e8d6', lineHeight: 1 }}>
+                        {p.esGanador ? 'Victoria' : 'Derrota'}
+                        {p.flags?.includes('shared_victory') && ' · compartida 🤝'}
+                        {p.flags?.includes('zero_ce_winner') && ' · sin CE ⚔️'}
+                      </p>
+                      <p style={{ fontFamily: FM, fontSize: '10px', color: '#4a3a5a', marginTop: '4px', letterSpacing: '0.05em' }}>
+                        {fecha} · {p.cantJugadores} jug.{alienNombre ? ` · 👽 ${alienNombre}` : ''}
+                      </p>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <p style={{ fontFamily: FM, fontSize: '16px', fontWeight: 700, color: p.esGanador ? '#c8992a' : '#8a7a9a', lineHeight: 1 }}>
+                        {parseFloat((p.puntos || 0).toFixed(1))} pts
+                      </p>
+                      <p style={{ fontFamily: FM, fontSize: '9px', color: '#4a3a5a', marginTop: '4px' }}>
+                        CI {p.coloniasInternas || 0} · CE {p.coloniasExternas || 0}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* ── PERFIL ESTELAR ─────────────────────────────────────────── */}
         {!loadingStats && perfilEstelar && (
           <div className="game-panel" style={{ padding: '24px', marginBottom: '20px' }}>

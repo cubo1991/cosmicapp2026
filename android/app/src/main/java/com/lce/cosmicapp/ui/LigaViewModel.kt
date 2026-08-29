@@ -8,6 +8,7 @@ import com.lce.cosmicapp.data.CosmicRepository
 import com.lce.cosmicapp.data.Jugador
 import com.lce.cosmicapp.data.Partida
 import com.lce.cosmicapp.data.PartidaDetalle
+import com.lce.cosmicapp.data.PartidaReciente
 import com.lce.cosmicapp.data.Puesto
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -240,14 +241,33 @@ class LigaViewModel(private val miPlayerId: String) : ViewModel() {
     private val _jugadorVisto = MutableStateFlow<Jugador?>(null)
     val jugadorVisto: StateFlow<Jugador?> = _jugadorVisto.asStateFlow()
 
-    fun verJugador(jugador: Jugador) { _jugadorVisto.value = jugador }
+    private val _partidasDeLaFicha = MutableStateFlow<List<PartidaReciente>>(emptyList())
+    val partidasDeLaFicha: StateFlow<List<PartidaReciente>> = _partidasDeLaFicha.asStateFlow()
+
+    fun verJugador(jugador: Jugador) {
+        _jugadorVisto.value = jugador
+        cargarPartidasDeLaFicha(jugador.id)
+    }
 
     /** Desde una tabla solo tenemos el id; se resuelve contra los jugadores ya cargados. */
     fun verJugadorPorId(playerId: String) {
-        _jugadorVisto.value = _estado.value.jugadores.firstOrNull { it.id == playerId }
+        val jugador = _estado.value.jugadores.firstOrNull { it.id == playerId }
+        _jugadorVisto.value = jugador
+        jugador?.let { cargarPartidasDeLaFicha(it.id) }
     }
 
-    fun cerrarFicha() { _jugadorVisto.value = null }
+    fun cerrarFicha() {
+        _jugadorVisto.value = null
+        _partidasDeLaFicha.value = emptyList()
+    }
+
+    private fun cargarPartidasDeLaFicha(playerId: String) = viewModelScope.launch {
+        _partidasDeLaFicha.value = try {
+            CosmicRepository.ultimasPartidasDe(playerId)
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
 
     // ---- Creación de partidas ----
 

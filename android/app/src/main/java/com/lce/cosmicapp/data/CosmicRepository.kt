@@ -114,6 +114,23 @@ data class Participante(
         playerId ?: color?.takeIf { it.isNotBlank() } ?: nombre.orEmpty()
 }
 
+/**
+ * Un resultado de las ultimas 10 partidas de un jugador, para su ficha.
+ * Espeja los campos que escribe finalizarPartida en `players/{id}/lastMatches`
+ * (ver functions/index.js), la misma subcoleccion que lee la web.
+ */
+data class PartidaReciente(
+    val matchId: String,
+    val puntos: Double = 0.0,
+    val esGanador: Boolean = false,
+    val cantJugadores: Long = 0,
+    val coloniasInternas: Long = 0,
+    val coloniasExternas: Long = 0,
+    val alienJugado: String? = null,
+    val flags: List<String> = emptyList(),
+    val fecha: java.util.Date? = null
+)
+
 /** Una partida abierta desde su codigo, para seguirla en la mesa. */
 data class PartidaDetalle(
     val id: String,
@@ -237,6 +254,29 @@ object CosmicRepository {
             .orderBy("fechaCreacion", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .limit(cuantas).get().await()
             .documents.map { it.aPartida() }
+
+    /**
+     * Las ultimas (hasta 10) partidas de un jugador, con su resultado. Es la
+     * misma subcoleccion `lastMatches` que usa `rankingService.obtenerUltimas10Partidas`
+     * en la web, asi que ambas plataformas muestran exactamente lo mismo.
+     */
+    suspend fun ultimasPartidasDe(playerId: String): List<PartidaReciente> =
+        db.collection("players").document(playerId).collection("lastMatches")
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(10).get().await()
+            .documents.map {
+                PartidaReciente(
+                    matchId = it.getString("matchId") ?: it.id,
+                    puntos = it.getDouble("puntos") ?: 0.0,
+                    esGanador = it.getBoolean("esGanador") ?: false,
+                    cantJugadores = it.getLong("cantJugadores") ?: 0,
+                    coloniasInternas = it.getLong("coloniasInternas") ?: 0,
+                    coloniasExternas = it.getLong("coloniasExternas") ?: 0,
+                    alienJugado = it.getString("alienJugado"),
+                    flags = (it.get("flags") as? List<*>)?.mapNotNull { f -> f as? String }.orEmpty(),
+                    fecha = it.getTimestamp("createdAt")?.toDate()
+                )
+            }
 
     /** Catalogo de aliens. Es de solo lectura: las reglas solo dejan escribir a admin. */
     suspend fun aliens(): List<Alien> =

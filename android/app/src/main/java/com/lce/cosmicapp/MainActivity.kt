@@ -197,10 +197,13 @@ private fun PantallaPrincipal(
     val carga by ligaVm.carga.collectAsState()
     val creacion by ligaVm.creacion.collectAsState()
     val jugadorVisto by ligaVm.jugadorVisto.collectAsState()
+    val partidasDeLaFicha by ligaVm.partidasDeLaFicha.collectAsState()
 
     jugadorVisto?.let { visto ->
         PantallaFichaJugador(
             jugador = visto,
+            partidasRecientes = partidasDeLaFicha,
+            aliensPorId = liga.aliens.associate { it.id to it.nombre },
             onVolver = ligaVm::cerrarFicha,
             modifier = Modifier.fillMaxSize().safeDrawingPadding()
         )

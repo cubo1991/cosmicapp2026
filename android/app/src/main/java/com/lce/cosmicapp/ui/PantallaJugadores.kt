@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,7 +25,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lce.cosmicapp.data.Jugador
+import com.lce.cosmicapp.data.PartidaReciente
 import com.lce.cosmicapp.ui.theme.Mono
+import java.text.SimpleDateFormat
+import java.util.Locale
+
+private val formatoFechaFicha = SimpleDateFormat("dd/MM/yyyy", Locale("es", "AR"))
 
 /**
  * Columnas de la Liga LCE, en el mismo orden que la web (estadisticasService).
@@ -136,6 +142,8 @@ fun PantallaLigaLCE(
 @Composable
 fun PantallaFichaJugador(
     jugador: Jugador,
+    partidasRecientes: List<PartidaReciente>,
+    aliensPorId: Map<String, String>,
     onVolver: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -168,6 +176,72 @@ fun PantallaFichaJugador(
                         }
                     }
                 }
+            }
+            Spacer(Modifier.height(24.dp))
+            Text(
+                "Últimas ${partidasRecientes.size} partidas",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(Modifier.height(8.dp))
+            if (partidasRecientes.isEmpty()) {
+                Text(
+                    "Todavía no tiene partidas cargadas.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        items(partidasRecientes, key = { it.matchId }) { partida -> FilaPartidaReciente(partida, aliensPorId) }
+    }
+}
+
+@Composable
+private fun FilaPartidaReciente(partida: PartidaReciente, aliensPorId: Map<String, String>) {
+    Card(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (partida.esGanador) MaterialTheme.colorScheme.primaryContainer
+            else MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (partida.esGanador) Text("🏆 ", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        if (partida.esGanador) "Victoria" else "Derrota",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = if (partida.esGanador) FontWeight.Bold else FontWeight.Normal
+                    )
+                    if (partida.flags.contains("shared_victory")) {
+                        Text(" · compartida 🤝", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                Text(
+                    buildString {
+                        partida.fecha?.let { append(formatoFechaFicha.format(it)); append(" · ") }
+                        append("${partida.cantJugadores} jugadores")
+                        partida.alienJugado?.let { append(" · 👽 ${aliensPorId[it] ?: it}") }
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    if (partida.puntos % 1.0 == 0.0) "${partida.puntos.toInt()} pts"
+                    else String.format(Locale.US, "%.1f pts", partida.puntos),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontFamily = Mono,
+                    color = if (partida.esGanador) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    "CI ${partida.coloniasInternas} · CE ${partida.coloniasExternas}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
