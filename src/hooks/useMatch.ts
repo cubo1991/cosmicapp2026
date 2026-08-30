@@ -6,7 +6,6 @@ import { db } from '@/firebase/config';
 import { scoringService } from '@/services/scoringService';
 import { createMatch } from '@/services/matchService';
 import { copaService } from '@/services/copaService';
-import { ligaService } from '@/services/ligaService';
 import { rankingService } from '@/services/rankingService';
 
 /**
@@ -137,10 +136,6 @@ export function useCrearMatch() {
         asociarACopa: true,
         ligaId
       });
-
-      if (ligaId) {
-        await ligaService.agregarPartida(ligaId, matchId);
-      }
 
       setLoading(false);
       return { success: true, matchId };

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import EditarLiga from '@/components/forms/EditarLiga';
+import GestionMiembrosLiga from '@/components/forms/GestionMiembrosLiga';
 import BotónEliminar from '@/components/buttons/BotónEliminar';
 import { useRouter } from 'next/navigation';
 
@@ -42,6 +43,8 @@ export default function EditarLigaPage({ params }) {
 
           <EditarLiga ligaId={id} onSuccess={handleSuccessEditar} />
         </div>
+
+        <GestionMiembrosLiga ligaId={id} />
       </div>
     </div>
   );

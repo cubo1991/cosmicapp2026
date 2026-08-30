@@ -306,3 +306,15 @@ No hay vista global de todos los jugadores
 
 **Última actualización:** 25 de abril de 2026
 **Estado:** ✅ Implementado y listo para producción
+
+---
+
+## ⚠️ Nota (30/08/2026) — multi-liga
+
+Este ranking sigue siendo **literalmente global**: `rankingService.obtenerRankingGlobal()` lee
+`last10Score` de la raíz de todos los `players`, sin filtrar por liga. Es correcto mientras exista
+una sola liga real (hoy), pero el día que haya una segunda, este ranking va a mezclar jugadores de
+las dos. Migrarlo a leer `players/{id}/ligaStats/{ligaId}` filtrado por la liga activa quedó
+pendiente — ver la Fase 6 de [`PLAN_MULTI_LIGA.md`](PLAN_MULTI_LIGA.md), que también explica por
+qué `players.last10Score` todavía no se puede borrar (este endpoint es uno de los que lo sigue
+leyendo).

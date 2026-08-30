@@ -12,6 +12,19 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
+    // Fase 3 de docs/PLAN_MULTI_LIGA.md. OJO: la web navega con sesion anonima
+    // para el uso normal (ver src/hooks/useFirebaseAuth.ts) — el login con
+    // Google es solo para /admin. Por eso esta funcion sirve para blindar
+    // pertenencia a una liga (miembrosUid guarda uids reales, de cuentas no
+    // anonimas), pero TODAVIA no se usa para copas/matches: exigirla ahi
+    // dejaria afuera a cualquier sesion anonima, o sea a la app entera tal
+    // como se usa hoy. Queda para cuando el juego en si pida login real.
+    function perteneceALiga(ligaId) {
+      return ligaId != null &&
+        exists(/databases/$(database)/documents/ligas/$(ligaId)) &&
+        request.auth.uid in get(/databases/$(database)/documents/ligas/$(ligaId)).data.get('miembrosUid', []);
+    }
+
     // ============ CAMPOS DE RESULTADO ============
     // Estos campos los escribe SOLO la Cloud Function (finalizarPartida y
     // crearPartida), que usa el Admin SDK y no pasa por estas reglas. Bloquearlos
@@ -80,9 +93,12 @@ service cloud.firestore {
       // mano para las que no salen de ninguna (victorias especiales, campañas,
       // pijones). Un jugador comun nunca necesita tocarlas, y si pudiera se
       // inflaria las copas ganadas.
+      // `ligas` (a que ligas pertenece) tampoco lo puede tocar un jugador
+      // comun: el alta a una liga es manual, la hace el admin (buscando el
+      // nombre o por invitacion) — ver docs/PLAN_MULTI_LIGA.md Fase 4.
       allow update: if request.auth.uid != null &&
                        (noTocaUid() || esReclamoValido() || isAdmin()) &&
-                       (noTocaCampos(['stats', 'estadisticas', 'last10Score', 'last3Score'])
+                       (noTocaCampos(['stats', 'estadisticas', 'last10Score', 'last3Score', 'ligas'])
                         || isAdmin());
 
       // Borrar: solo admin
@@ -92,12 +108,22 @@ service cloud.firestore {
       match /lastMatches/{matchId} {
         // Leer: todos los usuarios autenticados
         allow read: if request.auth.uid != null;
-        
+
         // Crear/Actualizar: solo sistema (via Cloud Functions o servidor)
         allow create, update: if request.auth.uid != null;
-        
+
         // Borrar: solo admin
         allow delete: if isAdmin();
+      }
+
+      // ====== SUBCOLECCIÓN: ESTADISTICAS POR LIGA (Fase 2/3 del multi-liga) ======
+      // A diferencia de lastMatches, esta si queda acotada a quien pertenece a
+      // la liga: es una coleccion nueva que hoy no lee ningun cliente, asi que
+      // restringirla no rompe nada existente. La escribe solo la Cloud
+      // Function (Admin SDK, no pasa por estas reglas) o un admin a mano.
+      match /ligaStats/{ligaId} {
+        allow read: if request.auth.uid != null && (perteneceALiga(ligaId) || isAdmin());
+        allow write: if isAdmin();
       }
     }
     
@@ -152,10 +178,17 @@ service cloud.firestore {
       allow create: if request.auth.uid != null &&
                        request.resource.data.nombre != null;
       
-      // Actualizar: cualquier usuario autenticado (rankings se actualizan via Cloud Functions)
+      // Actualizar: cualquier usuario autenticado, salvo la lista de miembros.
       // Nota: "creador" guarda un playerId (perfil de torneo), no un uid de
       // Auth, así que no se puede comparar contra request.auth.uid.
-      allow update: if request.auth.uid != null;
+      //
+      // MIEMBROS: el alta es manual y la hace el admin (buscando el nombre o
+      // por invitación) — ver docs/PLAN_MULTI_LIGA.md Fase 4. Por eso
+      // `miembros`/`miembrosUid` quedan cerrados a cualquiera que no sea
+      // admin (o la Cloud Function de alta, que usa Admin SDK y no pasa por
+      // estas reglas).
+      allow update: if request.auth.uid != null &&
+                       (noTocaCampos(['miembros', 'miembrosUid']) || isAdmin());
 
       // Borrar: solo admin, o cualquier autenticado si aún está en planificación
       allow delete: if isAdmin() ||

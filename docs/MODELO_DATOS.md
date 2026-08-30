@@ -41,7 +41,11 @@ Este documento existe para cerrar ese hueco. Idealmente, más adelante, tipar ta
 
 > ⚠️ Ojo con las claves **sin tilde ni ñ**: en la base son `campanas` y `pijon`. El README las menciona como "campañas" y "pijón" — eso es solo la etiqueta visible. Kotlin debe usar las claves reales.
 
-**Subcolección** `players/{id}/lastMatches` — últimas partidas para el ranking global (ver `rankingService.ts` y `docs/RANKING_GLOBAL.md`).
+**Subcolección** `players/{id}/lastMatches` — últimas partidas para el ranking global (ver `rankingService.ts` y `docs/RANKING_GLOBAL.md`). Desde el multi-liga (`docs/PLAN_MULTI_LIGA.md`) cada doc lleva también `ligaId`.
+
+**`ligas`** (array de ids): a qué ligas pertenece el jugador. Solo lo escribe la Cloud Function de alta (`agregarMiembroALiga`/`unirseALigaPorCodigo`) o un admin — las reglas bloquean que un jugador se auto-agregue.
+
+**Subcolección** `players/{id}/ligaStats/{ligaId}` (nueva, multi-liga): un doc por cada liga en la que participó, con la misma forma que `stats`/`estadisticas`/`last10Score`/`last3Score` de arriba pero acotada a esa liga. **Todavía convive** con los campos planos de la raíz — la Cloud Function escribe en los dos lugares a la vez (ver Fase 2 del plan) porque ningún lector (web ni Android) migró todavía a leer de acá. Los campos planos se borran recién cuando eso pase (Fase 6, pendiente).
 
 ---
 
@@ -78,7 +82,18 @@ Ciclos de 10 partidas con `ranking` embebido. Ciclo de vida en `activeCopaServic
 
 ### `ligas`
 
-Ligas con `ranking` embebido. Fuera del alcance móvil según el plan.
+Redefinida por el multi-liga (`docs/PLAN_MULTI_LIGA.md`, Fase 1-4). Campos reales:
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `nombre` / `descripcion` / `estado` | string | |
+| `miembros` | array\<playerId\> | Alta manual: la hace un admin (buscando el nombre) o la propia persona con `codigoInvitacion`. Bloqueado para cualquier otro por reglas. |
+| `miembrosUid` | array\<uid\> | Espejo de `miembros` con el uid de Auth de quien ya reclamó su jugador — lo necesitan las reglas para chequear pertenencia sin poder hacer una query. |
+| `codigoInvitacion` | string | 6 caracteres, mismo generador que el código de partida. |
+
+Cada `copa` y cada `match` llevan un `ligaId` que los ata a una de estas — ver más abajo.
+
+**`ranking`/`partidas` embebidos**: existían en el diseño original de `ligas` (un sistema de puntaje paralelo al de `copas`) pero **nunca estuvieron conectados a `finalizarPartida`**, la Cloud Function real. Las funciones que los escribían (`ligaService.agregarPartida`, `ligaService.actualizarRanking`, `scoringService.actualizarRankingLiga`) se sacaron en la Fase 6 del multi-liga por estar muertas. El ranking real por liga vive en `players/{id}/ligaStats/{ligaId}` (ver arriba). Puede quedar data vieja en `ranking`/`partidas` de antes de la limpieza; no se borró, solo se dejó de escribir.
 
 ### `snapshots`
 
@@ -114,3 +129,4 @@ Aparte de esto, `playerService.emailExists()` sigue existiendo y se usa al crear
 - [x] Mover la lógica de scoring y el ciclo de copas a Cloud Functions (`finalizarPartida`, `crearPartida`). Ningún cliente calcula puntos ni toca copas.
 - [ ] Cerrar las reglas de `matches` y `copas` ahora que los clientes no necesitan escribirlas: hoy el camino único es por convención, no por candado. Requiere auditar qué escrituras directas quedan en el admin (borrado, carga masiva, semillas).
 - [ ] Tipar el dominio en el lado web a partir de este documento.
+- [ ] Multi-liga (`docs/PLAN_MULTI_LIGA.md`): migrar los lectores (ranking, panel admin) a `ligaStats` y recién ahí borrar los campos planos de `players`. Selector de liga y suscripción FCM por tópico en Android.

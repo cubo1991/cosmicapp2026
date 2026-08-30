@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import { useLigas } from "@/hooks/useLiga";
-import { usePlayer } from "@/hooks/usePlayer";
 
 export default function CrearLiga() {
   const { crear, loading, error } = useLigas();
-  const { player: usuarioActual } = usePlayer();
 
   const [formData, setFormData] = useState({
     nombre: "",
@@ -29,21 +27,12 @@ export default function CrearLiga() {
     setMensajeError("");
     setMensajeExito("");
 
-    if (!usuarioActual) {
-      setMensajeError("Debes ser un usuario para crear una liga");
-      return;
-    }
-
     if (formData.nombre.trim().length === 0) {
       setMensajeError("El nombre de la liga es requerido");
       return;
     }
 
-    const resultado = await crear(
-      formData.nombre,
-      formData.descripcion,
-      usuarioActual.id,
-    );
+    const resultado = await crear(formData.nombre, formData.descripcion);
 
     if (resultado.success) {
       setMensajeExito("¡Liga creada exitosamente!");
@@ -116,8 +105,8 @@ export default function CrearLiga() {
 
         <div className="bg-blue-50 border border-blue-200 p-3 rounded">
           <p className="text-sm text-gray-700">
-            Serás el creador y primer miembro de la liga. Podrás invitar otros
-            jugadores después.
+            La liga arranca sin miembros. Después la editás para agregar
+            jugadores por nombre o compartir el código de invitación.
           </p>
         </div>
 

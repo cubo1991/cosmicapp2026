@@ -68,6 +68,19 @@ async function sembrar() {
       partidas: [],
       ranking: {},
     });
+
+    // Una liga con David como miembro (uid real, de una cuenta de Google),
+    // para probar pertenencia. UID_OTRO no es miembro de ninguna.
+    await setDoc(doc(db, 'ligas/liga1'), {
+      nombre: 'LCE',
+      estado: 'activa',
+      miembros: ['historico'],
+      miembrosUid: [UID_GOOGLE],
+    });
+    await setDoc(doc(db, 'players/historico/ligaStats/liga1'), {
+      stats: { partidas: 10 },
+      estadisticas: { jugadas: 10 },
+    });
   });
 }
 
@@ -195,6 +208,63 @@ const casos = [
     accion: () => updateDoc(doc(conGoogle(UID_ADMIN), 'matches/partida'), {
       resumen: { totalParticipantes: 3 },
     }),
+  },
+
+  // ---- Multi-liga (Fase 3): pertenencia y alta manual ----
+  {
+    // El alta a una liga la hace el admin (a mano o por invitación), no el
+    // propio interesado.
+    nombre: 'un jugador comun no puede agregarse solo a una liga',
+    esperado: 'denegado',
+    accion: () => updateDoc(doc(conGoogle(), 'ligas/liga1'), {
+      miembros: ['historico', 'intruso'],
+      miembrosUid: [UID_GOOGLE, UID_OTRO],
+    }),
+  },
+  {
+    nombre: 'un admin si puede agregar un miembro a una liga',
+    esperado: 'permitido',
+    accion: () => updateDoc(doc(conGoogle(UID_ADMIN), 'ligas/liga1'), {
+      miembros: ['historico', 'nuevo'],
+      miembrosUid: [UID_GOOGLE, UID_OTRO],
+    }),
+  },
+  {
+    // Otros campos de la liga (nombre, descripcion, estado) siguen editables,
+    // solo se cerró miembros/miembrosUid.
+    nombre: 'editar el nombre de una liga sigue permitido',
+    esperado: 'permitido',
+    accion: () => updateDoc(doc(conGoogle(), 'ligas/liga1'), { nombre: 'LCE renombrada' }),
+  },
+  {
+    nombre: 'un jugador comun no puede meterse solo a una liga tocando su propio campo `ligas`',
+    esperado: 'denegado',
+    accion: () => updateDoc(doc(conGoogle(), 'players/historico'), { ligas: ['liga1'] }),
+  },
+  {
+    nombre: 'quien pertenece a la liga puede leer sus ligaStats',
+    esperado: 'permitido',
+    accion: () => getDoc(doc(conGoogle(), 'players/historico/ligaStats/liga1')),
+  },
+  {
+    nombre: 'quien NO pertenece a la liga no puede leer sus ligaStats',
+    esperado: 'denegado',
+    accion: () => getDoc(doc(conGoogle(UID_OTRO), 'players/historico/ligaStats/liga1')),
+  },
+  {
+    nombre: 'una sesion anonima no puede leer ligaStats ajenos',
+    esperado: 'denegado',
+    accion: () => getDoc(doc(anonimo(), 'players/historico/ligaStats/liga1')),
+  },
+  {
+    nombre: 'nadie (ni siquiera un miembro) puede escribir ligaStats desde el cliente',
+    esperado: 'denegado',
+    accion: () => setDoc(doc(conGoogle(), 'players/historico/ligaStats/liga1'), { stats: { partidas: 999 } }),
+  },
+  {
+    nombre: 'un admin si puede escribir ligaStats a mano',
+    esperado: 'permitido',
+    accion: () => setDoc(doc(conGoogle(UID_ADMIN), 'players/historico/ligaStats/liga1'), { stats: { partidas: 11 } }),
   },
 ];
 

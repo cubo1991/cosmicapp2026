@@ -7,6 +7,7 @@ import asignadorAliens from "../utils/asignadorAliens";
 import { generarNombrePartida } from "@/utils/generadorNombres";
 import { useStore } from "@/store/useStore";
 import { usePlayers } from "@/hooks/usePlayer";
+import { useLigaActiva } from "@/hooks/useLigaActiva";
 import { LoadingOverlay } from "../components/LoadingOverlay";
 import { ShareMatchCode } from "../components/ShareMatchCode";
 
@@ -44,7 +45,14 @@ function NewMatch() {
   const codigoPartida    = useStore(s => s.codigoPartida);
   const codigoCorto      = useStore(s => s.codigoCorto);
   const resetAliens      = useStore(s => s.setAliensPartida);
-  const { players, loading: loadingPlayers } = usePlayers();
+  const { players: todosLosJugadores, loading: loadingPlayers } = usePlayers();
+  const { ligaActivaId } = useLigaActiva();
+  // Solo jugadores de la liga activa (los sin `ligas` son datos viejos sin
+  // migrar: se muestran igual para no esconder jugadores por un descuido de
+  // datos). Ver docs/PLAN_MULTI_LIGA.md Fase 5.
+  const players = todosLosJugadores.filter(
+    (p: any) => !p.ligas?.length || p.ligas.includes(ligaActivaId)
+  );
 
   useEffect(() => {
     resetAliens([]);
@@ -159,7 +167,7 @@ function NewMatch() {
       }));
 
       const nombre = await generarNombrePartida();
-      await createMatch({ nombre, jugadores: jugadoresSerializados, asociarACopa });
+      await createMatch({ nombre, jugadores: jugadoresSerializados, asociarACopa, ligaId: ligaActivaId });
       setPartidaCreada(true);
     } catch (err) {
       console.error(err);

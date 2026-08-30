@@ -1,15 +1,10 @@
 'use client';
 
 import {
-  collection,
   doc,
   updateDoc,
-  getDocs,
-  query,
-  where,
   getDoc,
   serverTimestamp,
-  writeBatch,
   increment
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
@@ -313,59 +308,6 @@ export const scoringService = {
       return rankingOrdenado;
     } catch (error) {
       console.error('Error actualizando ranking seguro de copa:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Actualizar ranking de una liga con los puntos de la partida
-   */
-  async actualizarRankingLiga(ligaId: string, matchData: any, jugadoresConPuntos: Record<string, any>) {
-    try {
-      const ligaRef = doc(db, 'ligas', ligaId);
-      const ligaSnap = await getDoc(ligaRef);
-
-      if (!ligaSnap.exists()) {
-        throw new Error('Liga no encontrada');
-      }
-
-      const rankingActual: Record<string, any> = ligaSnap.data().ranking || {};
-      const rankingActualizado: Record<string, any> = { ...rankingActual };
-
-      // Actualizar o crear entrada en ranking para cada jugador
-      Object.entries(jugadoresConPuntos).forEach(([playerId, datosJugador]: [string, any]) => {
-        if (!rankingActualizado[playerId]) {
-          rankingActualizado[playerId] = {
-            nombreJugador: datosJugador.nombre,
-            puntosTotales: 0,
-            partidas: 0,
-            posicion: 0,
-            promedio: 0
-          };
-        }
-        
-        rankingActualizado[playerId].puntosTotales += datosJugador.puntos;
-        rankingActualizado[playerId].partidas += 1;
-        rankingActualizado[playerId].promedio = 
-          rankingActualizado[playerId].puntosTotales / rankingActualizado[playerId].partidas;
-      });
-      
-      // Recalcular posiciones
-      const rankingOrdenado = Object.entries(rankingActualizado)
-        .sort((a, b) => (b[1].puntosTotales || 0) - (a[1].puntosTotales || 0))
-        .reduce((acc: Record<string, any>, [key, value], index) => {
-          acc[key] = { ...value, posicion: index + 1 };
-          return acc;
-        }, {});
-
-      await updateDoc(ligaRef, {
-        ranking: rankingOrdenado,
-        updatedAt: serverTimestamp()
-      });
-      
-      return rankingOrdenado;
-    } catch (error) {
-      console.error('Error actualizando ranking de liga:', error);
       throw error;
     }
   },

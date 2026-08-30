@@ -66,6 +66,7 @@ async function sembrar({ posicion, partidasPrevias = [] }) {
   await setDoc(doc(db, 'copas', 'copa-test'), {
     nombre: 'Copa de prueba',
     estado: 'activa',
+    ligaId: 'liga1',
     partidas,
     ranking: {},
   });
@@ -75,6 +76,7 @@ async function sembrar({ posicion, partidasPrevias = [] }) {
     codigo: 'TEST01',
     estado: 'activa',
     copId: 'copa-test',
+    ligaId: 'liga1',
     posicion,
     asociarACopa: true,
     sessionId: 'ses-test',
@@ -163,6 +165,8 @@ prueba('cierra la copa y adjudica ganador en la partida 10', async () => {
   const ana = (await getDoc(doc(db, 'players', ANA))).data();
   assert.equal(ana.estadisticas.copas, 1, 'la ganadora suma una copa');
   assert.equal(ana.estadisticas.podioCopas, 10);
+  assert.equal(ana.estadisticas.jugadas, 1, 'el podio no debe pisar el resto de estadisticas (merge anidado)');
+  assert.equal(ana.estadisticas.victorias, 1, 'el podio no debe pisar el resto de estadisticas (merge anidado)');
   const beto = (await getDoc(doc(db, 'players', BETO))).data();
   assert.equal(beto.estadisticas.podioCopas, 7);
   assert.equal(beto.estadisticas.copas, 0);
@@ -276,6 +280,7 @@ prueba('crear con la copa llena la cierra y abre la siguiente', async () => {
   await sinReglas((db) => setDoc(doc(db, 'copas', 'copa-test'), {
     nombre: 'Copa de prueba',
     estado: 'activa',
+    ligaId: 'liga1',
     partidas: Array.from({ length: 10 }, (_, i) => ({
       posicion: i + 1, matchId: `vieja-${i}`, fechaJuego: new Date(), estado: 'cargada',
     })),

@@ -25,6 +25,20 @@ Era "could have" desde el plan original, sigue sin implementarse.
 - Mientras tanto la distribución sigue siendo Firebase App Distribution al grupo de la liga,
   que funciona bien para el tamaño actual (un grupo cerrado de conocidos).
 
+## Selector de liga y notificaciones por liga (multi-liga)
+
+Agregado el 30/08/2026, ver [`PLAN_MULTI_LIGA.md`](PLAN_MULTI_LIGA.md). El backend (Cloud Functions,
+Firestore) y la web ya soportan que exista más de una liga; Android hereda automáticamente el
+`ligaId` opcional en `crearPartida`/`finalizarPartida` (si no lo manda, cae en `liga1`), pero le
+falta su propia UI:
+
+- Pantalla o selector para elegir "en qué liga estoy jugando" (equivalente al que se agregó en la
+  web, en el `NavBar`). Mientras solo exista `liga1` no hace falta mostrar nada.
+- Decidir si conviene suscribirse al tópico FCM `liga_<id>` de la liga elegida, en vez de (o además
+  de) `"liga"`, el tópico único al que suscribe hoy toda instalación. Los avisos del backend ya
+  mandan a ambos tópicos como puente, así que no hay apuro ni riesgo de dejar de recibir avisos por
+  no actualizar esto.
+
 ## Decisión de iOS (Etapa 5 condicional)
 
 El plan original preveía decidir esto al cerrar la Etapa 3 con datos de uso reales. Sigue

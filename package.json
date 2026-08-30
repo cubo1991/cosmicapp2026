@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "test:rules": "firebase emulators:exec --only firestore \"node scripts/test-firestore-rules.mjs\"",
-    "test:finalizar": "firebase emulators:exec --only firestore,functions,auth \"node scripts/test-finalizar-partida.mjs\""
+    "test:finalizar": "firebase emulators:exec --only firestore,functions,auth \"node scripts/test-finalizar-partida.mjs\"",
+    "test:migrar-liga1": "firebase emulators:exec --only firestore \"node functions/scripts/test-migrar-liga1.js\"",
+    "test:gestion-ligas": "firebase emulators:exec --only firestore,functions,auth \"node scripts/test-gestion-ligas.mjs\""
   },
   "dependencies": {
     "firebase": "^12.7.0",

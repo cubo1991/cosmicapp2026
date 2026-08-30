@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import TickerBar from "@/components/TickerBar";
+import { useLigaActiva } from "@/hooks/useLigaActiva";
 
 const LINKS = [
   { href: "/cargarPartida", label: "Jugar" },
@@ -14,6 +15,37 @@ const LINKS = [
 
 const FONT_DISPLAY = "var(--font-display, 'Bebas Neue', Impact, sans-serif)";
 const FONT_BODY = "var(--font-body, 'Exo 2', sans-serif)";
+
+/** Solo aparece si hay más de una liga activa — ver docs/PLAN_MULTI_LIGA.md Fase 5. */
+function SelectorLiga({ className = "" }) {
+  const { ligaActivaId, ligasActivas, mostrarSelector, cambiarLiga } = useLigaActiva();
+  if (!mostrarSelector) return null;
+
+  return (
+    <select
+      value={ligaActivaId}
+      onChange={(e) => cambiarLiga(e.target.value)}
+      className={className}
+      style={{
+        fontFamily: FONT_BODY,
+        fontSize: "12px",
+        background: "rgba(200,153,42,0.1)",
+        border: "1px solid rgba(200,153,42,0.3)",
+        borderRadius: "6px",
+        color: "#c8992a",
+        padding: "4px 8px",
+        cursor: "pointer",
+      }}
+      title="Liga activa"
+    >
+      {ligasActivas.map((l) => (
+        <option key={l.id} value={l.id} style={{ background: "#1a1330", color: "#f0e8d6" }}>
+          {l.nombre}
+        </option>
+      ))}
+    </select>
+  );
+}
 
 export default function NavBar() {
   const [open, setOpen] = useState(false);
@@ -78,6 +110,8 @@ export default function NavBar() {
                 </span>
               </Link>
             ))}
+
+            <SelectorLiga />
 
             {/* Admin separado con acento */}
             <Link href="/admin">
@@ -152,6 +186,7 @@ export default function NavBar() {
                 </span>
               </Link>
             ))}
+            <SelectorLiga className="w-full" />
           </div>
         </div>
 

@@ -4,7 +4,6 @@ import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { AlienCard } from "../components/alienCard";
 import { LoadingOverlay } from "../components/LoadingOverlay";
 import { ErrorState } from "../components/ErrorState";
-import { activeCopaService } from "@/services/activeCopaService";
 import { scoringService } from "@/services/scoringService";
 import { createMatch } from "@/services/matchService";
 import { doc, updateDoc } from "firebase/firestore";
@@ -202,6 +201,7 @@ const JoinMatch = ({ matchId }) => {
         jugadores: jugadoresConAliens,
         asociarACopa: match.asociarACopa !== false,
         sessionId: match.sessionId || null, // inherit session
+        ligaId: match.ligaId || null, // la revancha queda en la misma liga que la partida original
       });
 
       router.push(`/cargarPartida/${newMatchId}`);
@@ -221,14 +221,11 @@ const JoinMatch = ({ matchId }) => {
       if (participantes === 0) throw new Error("Debe haber al menos un participante");
       if (ganadores === 0)     throw new Error("Debe haber al menos un ganador");
 
-      // Assign copa if needed
-      if (match.asociarACopa !== false) {
-        await activeCopaService.obtenerOCrearCopaActiva();
-        if (!match.copId) {
-          await activeCopaService.agregarPartidaAutomatica(matchId);
-        }
-      }
-
+      // La asignación a copa ya la garantiza la Cloud Function `crearPartida`
+      // al crear la partida (ver docs/PLAN_MULTI_LIGA.md Fase 5) — este
+      // fallback llamaba a activeCopaService, que escribe copas sin ligaId y
+      // por afuera del ciclo de la Cloud Function; se sacó porque ya no hace
+      // falta y podía crear una copa "huérfana" de ninguna liga.
       const resultado = await scoringService.finalizarPartidaConCopa(matchId, puntos);
 
       // Check if copa was closed (posicion 10)

@@ -43,21 +43,22 @@ export function useLiga(ligaId) {
     obtenerLiga();
   }, [ligaId]);
 
-  const agregarMiembro = useCallback(async (playerId, nombreJugador) => {
+  const agregarMiembro = useCallback(async (playerId) => {
     try {
       setError(null);
-      
+
       // Validar que no esté ya en la liga
       if (liga.miembros && liga.miembros.includes(playerId)) {
         throw new Error('Este jugador ya está en la liga');
       }
 
-      await ligaService.agregarMiembro(ligaId, playerId, nombreJugador);
+      // Alta manual por admin — ver docs/PLAN_MULTI_LIGA.md Fase 4.
+      await ligaService.agregarMiembroPorAdmin(ligaId, playerId);
       setLiga(prev => ({
         ...prev,
         miembros: [...(prev.miembros || []), playerId]
       }));
-      
+
       return { success: true };
     } catch (err) {
       const message = err.message || 'Error agregando miembro';
@@ -133,21 +134,18 @@ export function useLigas() {
     obtenerLigas();
   }, []);
 
-  const crear = useCallback(async (nombre, descripcion, creador) => {
+  const crear = useCallback(async (nombre, descripcion) => {
     try {
       setError(null);
-      
+
       if (!nombre || nombre.trim().length === 0) {
         throw new Error('El nombre de la liga es requerido');
       }
 
-      if (!creador) {
-        throw new Error('Se requiere un creador');
-      }
-
-      const nuevaLiga = await ligaService.crear(nombre, descripcion, creador);
+      // Solo un admin puede crear una liga — lo valida la Cloud Function.
+      const nuevaLiga = await ligaService.crear(nombre, descripcion);
       setLigas(prev => [...prev, nuevaLiga]);
-      
+
       return { success: true, liga: nuevaLiga };
     } catch (err) {
       const message = err.message || 'Error creando liga';

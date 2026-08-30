@@ -3,7 +3,6 @@
 import {
   collection,
   doc,
-  addDoc,
   updateDoc,
   getDocs,
   getDoc,
@@ -11,45 +10,63 @@ import {
   where,
   serverTimestamp,
   onSnapshot,
-  arrayUnion,
   arrayRemove
 } from 'firebase/firestore';
-import { db } from '@/firebase/config';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '@/firebase/config';
 
 /**
  * Servicio de Ligas
  * Gestión de ligas y sus miembros
+ *
+ * Crear una liga y agregar/unirse a miembros pasa por Cloud Functions (ver
+ * docs/PLAN_MULTI_LIGA.md, Fase 4): el alta a una liga es manual, la hace un
+ * admin (buscando el nombre) o la persona misma con un código de invitación.
+ * Las reglas de Firestore bloquean `miembros`/`miembrosUid` para cualquiera
+ * que no sea admin, así que no alcanza con escribir directo como antes.
  */
 export const ligaService = {
   /**
-   * Crear una nueva liga
+   * Crear una nueva liga. Solo un admin puede hacerlo (lo valida la Cloud
+   * Function); arranca sin miembros y con un código de invitación generado.
    */
-  async crear(nombre, descripcion = '', creador) {
+  async crear(nombre, descripcion = '') {
     try {
-      const docRef = await addDoc(collection(db, 'ligas'), {
-        nombre,
-        descripcion,
-        estado: 'activa',
-        creador,
-        fechaInicio: serverTimestamp(),
-        fechaFin: null,
-        miembros: [creador],
-        partidas: [],
-        ranking: {
-          [creador]: {
-            nombreJugador: '',
-            puntosTotales: 0,
-            partidas: 0,
-            posicion: 1,
-            promedio: 0
-          }
-        },
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-      return { id: docRef.id, nombre, descripcion };
+      const crearLiga = httpsCallable(functions, 'crearLiga');
+      const res: any = await crearLiga({ nombre, descripcion });
+      return res.data;
     } catch (error) {
       console.error('Error creando liga:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Agregar un jugador ya existente a una liga (alta manual por nombre).
+   * Solo un admin puede hacerlo.
+   */
+  async agregarMiembroPorAdmin(ligaId, playerId) {
+    try {
+      const agregarMiembroALiga = httpsCallable(functions, 'agregarMiembroALiga');
+      const res: any = await agregarMiembroALiga({ ligaId, playerId });
+      return res.data;
+    } catch (error) {
+      console.error('Error agregando miembro a liga:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * La propia persona se une a una liga con el código de invitación, sobre su
+   * jugador ya reclamado (cuenta no anónima).
+   */
+  async unirsePorCodigo(codigo, playerId) {
+    try {
+      const unirseALigaPorCodigo = httpsCallable(functions, 'unirseALigaPorCodigo');
+      const res: any = await unirseALigaPorCodigo({ codigo, playerId });
+      return res.data;
+    } catch (error) {
+      console.error('Error uniéndose a la liga:', error);
       throw error;
     }
   },
@@ -100,30 +117,6 @@ export const ligaService = {
   },
 
   /**
-   * Agregar miembro a la liga
-   */
-  async agregarMiembro(ligaId, playerId, nombreJugador) {
-    try {
-      const docRef = doc(db, 'ligas', ligaId);
-      await updateDoc(docRef, {
-        miembros: arrayUnion(playerId),
-        [`ranking.${playerId}`]: {
-          nombreJugador,
-          puntosTotales: 0,
-          partidas: 0,
-          posicion: 0,
-          promedio: 0
-        },
-        updatedAt: serverTimestamp()
-      });
-      return true;
-    } catch (error) {
-      console.error('Error agregando miembro a liga:', error);
-      throw error;
-    }
-  },
-
-  /**
    * Remover miembro de la liga
    */
   async removerMiembro(ligaId, playerId) {
@@ -141,24 +134,14 @@ export const ligaService = {
   },
 
   /**
-   * Agregar partida a la liga
-   */
-  async agregarPartida(ligaId, matchId) {
-    try {
-      const docRef = doc(db, 'ligas', ligaId);
-      await updateDoc(docRef, {
-        partidas: arrayUnion(matchId),
-        updatedAt: serverTimestamp()
-      });
-      return true;
-    } catch (error) {
-      console.error('Error agregando partida a liga:', error);
-      throw error;
-    }
-  },
-
-  /**
    * Obtener ranking de una liga
+   *
+   * @deprecated Este ranking embebido (`ligas.ranking`) es del sistema viejo,
+   * paralelo al de copas, que nunca estuvo conectado a `finalizarPartida` (la
+   * Cloud Function real). Ya nada lo escribe (Fase 6 de
+   * docs/PLAN_MULTI_LIGA.md le sacó `agregarPartida`/`actualizarRanking`), así
+   * que devuelve lo que haya quedado histórico o vacío. El ranking real por
+   * liga vive en `players/{id}/ligaStats/{ligaId}`.
    */
   async obtenerRanking(ligaId) {
     try {
@@ -180,23 +163,6 @@ export const ligaService = {
       return {};
     } catch (error) {
       console.error('Error obteniendo ranking:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Actualizar ranking de la liga (usada por Cloud Functions)
-   */
-  async actualizarRanking(ligaId, ranking) {
-    try {
-      const docRef = doc(db, 'ligas', ligaId);
-      await updateDoc(docRef, {
-        ranking: ranking,
-        updatedAt: serverTimestamp()
-      });
-      return true;
-    } catch (error) {
-      console.error('Error actualizando ranking:', error);
       throw error;
     }
   },
