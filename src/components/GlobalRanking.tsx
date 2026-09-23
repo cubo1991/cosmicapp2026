@@ -294,7 +294,7 @@ function RankingRowCompact({ jugador }) {
               {jugador.puntos.toFixed(1)}
             </p>
           </div>
-          <p style={{ fontFamily: FB, fontSize: "10px", color: "#4a3a5a" }}>últ. 10 partidas</p>
+          <p style={{ fontFamily: FB, fontSize: "10px", color: "#4a3a5a" }}>últ. 10 + copas</p>
         </div>
       </div>
     </Link>

@@ -111,12 +111,14 @@ export const rankingService = {
    */
   async obtenerRankingGlobal() {
     try {
+      const PUNTOS_POR_COPA = 1;
       const playersSnap = await getDocs(collection(db, 'players'));
 
       return playersSnap.docs
         .map((d): Record<string, any> => ({ id: d.id, ...d.data() }))
-        .filter(j => (j.last10Score || 0) > 0)
-        .sort((a, b) => (b.last10Score || 0) - (a.last10Score || 0))
+        .map(j => ({ ...j, _puntosCopas: (j.estadisticas?.copas || 0) * PUNTOS_POR_COPA }))
+        .filter(j => (j.last10Score || 0) + j._puntosCopas > 0)
+        .sort((a, b) => ((b.last10Score || 0) + b._puntosCopas) - ((a.last10Score || 0) + a._puntosCopas))
         .slice(0, 100)
         .map((j, i) => {
           const last10 = j.last10Score || 0;
@@ -135,8 +137,10 @@ export const rankingService = {
             id: j.id,
             nombre: j.name || 'Sin nombre',
             avatar: j.photoURL || null,
-            puntos: parseFloat(last10.toFixed(1)),
+            puntos: parseFloat((last10 + j._puntosCopas).toFixed(1)),
+            last10Score: parseFloat(last10.toFixed(1)),
             last3Score: parseFloat(last3.toFixed(1)),
+            puntosCopas: j._puntosCopas,
             forma,
             partidas: j.estadisticas?.jugadas || j.stats?.partidas || 0,
             victorias: j.estadisticas?.copas || 0,
