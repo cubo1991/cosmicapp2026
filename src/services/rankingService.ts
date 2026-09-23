@@ -116,7 +116,7 @@ export const rankingService = {
 
       return playersSnap.docs
         .map((d): Record<string, any> => ({ id: d.id, ...d.data() }))
-        .map(j => ({ ...j, _puntosCopas: (j.estadisticas?.copas || 0) * PUNTOS_POR_COPA }))
+        .map((j): Record<string, any> => ({ ...j, _puntosCopas: (j.estadisticas?.copas || 0) * PUNTOS_POR_COPA }))
         .filter(j => (j.last10Score || 0) + j._puntosCopas > 0)
         .sort((a, b) => ((b.last10Score || 0) + b._puntosCopas) - ((a.last10Score || 0) + a._puntosCopas))
         .slice(0, 100)
